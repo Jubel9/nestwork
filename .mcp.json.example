@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "nestwork": {
+      "command": "/absolute/path/to/nestwork/.venv/bin/python",
+      "args": ["-m", "nestwork.mcp_server"],
+      "env": { "PYTHONPATH": "/absolute/path/to/nestwork" }
+    }
+  }
+}

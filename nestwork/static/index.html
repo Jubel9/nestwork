@@ -1,0 +1,939 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Nestwork</title>
+  <!-- Installable app: on a phone's Home Screen it opens full screen, with its own icon and a dark status bar. -->
+  <link rel="manifest" href="/manifest.webmanifest">
+  <meta name="theme-color" content="#0b0d1b" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#eef1f8" media="(prefers-color-scheme: light)">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Nestwork">
+  <link rel="apple-touch-icon" href="/static/icons/icon-180.png">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><path d='M2 2h22l6 6v22H8l-6-6z' fill='%2307091a'/><path d='M7 7h15l3 3v15H10l-3-3z' fill='none' stroke='%2300eaff' stroke-width='2'/><rect x='13' y='13' width='6' height='6' fill='%23ff3cdc'/></svg>">
+  <script>
+    try { const t = localStorage.getItem('nestwork.theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch {}
+  </script>
+  <script src="/static/vendor/tailwindcss-3.4.17.js"></script>   <!-- the Tailwind 3.4.17 Play CDN build, kept here so the app works offline -->
+  <script>
+    const tone = name => Object.fromEntries([50, 100, 200, 300, 700, 800].map(n => [n, `rgb(var(--c-${name}-${n}) / <alpha-value>)`]));
+    tailwind.config = {
+      theme: { extend: {
+        fontFamily: {
+          sans: ['Rajdhani', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+          display: ['Orbitron', 'Rajdhani', 'ui-sans-serif', 'sans-serif'],
+          mono: ['"Share Tech Mono"', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
+        },
+        colors: {
+          slate: Object.fromEntries([50, 100, 200, 300, 400, 500, 600, 700, 800, 900].map(n => [n, `rgb(var(--c-slate-${n}) / <alpha-value>)`])),
+          white: 'rgb(var(--c-white) / <alpha-value>)',
+          lavender: tone('lavender'), baby: tone('baby'), peach: tone('peach'), lilac: tone('lilac'),
+          mint: tone('mint'), butter: tone('butter'), blush: tone('blush'),
+        },
+        // Squared-off corners everywhere; `full` stays round for dots, rings and avatars.
+        borderRadius: { sm: '2px', DEFAULT: '2px', md: '3px', lg: '3px', xl: '4px', '2xl': '4px', '3xl': '6px' },
+        // Shadows are thin edges and glows instead of soft drop shadows.
+        boxShadow: {
+          sm: '0 0 0 1px rgb(var(--c-lavender-200) / .35)',
+          DEFAULT: '0 0 0 1px rgb(var(--c-lavender-200) / .45)',
+          md: '0 0 0 1px rgb(var(--c-lavender-300) / .45), 0 0 18px -4px rgb(var(--c-lavender-300) / .45)',
+          lg: '0 0 0 1px rgb(var(--c-lavender-200) / .6), 0 14px 40px -14px rgb(0 0 0 / .7)',
+          xl: '0 0 0 1px rgb(var(--c-lavender-200) / .7), 0 24px 60px -18px rgb(0 0 0 / .8), 0 0 40px -12px rgb(var(--c-lavender-300) / .25)',
+          '2xl': '0 0 0 1px rgb(var(--c-lavender-200) / .7), 0 30px 80px -20px rgb(0 0 0 / .85)',
+        },
+      } },
+    };
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700;800&family=Rajdhani:wght@500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+  <style>
+    /* Every color is a variable so the whole app switches theme in one place. The names are the
+       phase colors the server stores (lavender, baby, peach, …); their values are the neon set:
+       lavender = cyan (primary), lilac = magenta, baby = electric blue, peach = orange,
+       butter = yellow, mint = green, blush = hot red. Light is the "daylight" version. */
+    :root {
+      --c-slate-50: 246 248 252;
+      --c-slate-100: 237 241 248;
+      --c-slate-200: 222 228 240;
+      --c-slate-300: 196 205 222;
+      --c-slate-400: 112 122 148;
+      --c-slate-500: 88 98 124;
+      --c-slate-600: 66 76 102;
+      --c-slate-700: 44 52 76;
+      --c-slate-800: 26 32 54;
+      --c-slate-900: 12 16 34;
+      --c-white: 255 255 255;
+      --c-lavender-50: 234 250 253;
+      --c-lavender-100: 206 243 250;
+      --c-lavender-200: 150 224 240;
+      --c-lavender-300: 20 182 212;
+      --c-lavender-700: 0 108 134;
+      --c-lavender-800: 0 82 102;
+      --c-baby-50: 236 243 255;
+      --c-baby-100: 214 228 255;
+      --c-baby-200: 170 198 255;
+      --c-baby-300: 84 136 246;
+      --c-baby-700: 30 76 186;
+      --c-peach-50: 255 243 233;
+      --c-peach-100: 255 226 204;
+      --c-peach-200: 253 192 150;
+      --c-peach-300: 244 128 56;
+      --c-peach-700: 158 66 6;
+      --c-lilac-50: 253 237 250;
+      --c-lilac-100: 250 212 244;
+      --c-lilac-200: 240 162 228;
+      --c-lilac-300: 214 54 184;
+      --c-lilac-700: 150 18 126;
+      --c-mint-50: 231 252 242;
+      --c-mint-100: 200 245 222;
+      --c-mint-200: 140 228 184;
+      --c-mint-300: 26 186 116;
+      --c-mint-700: 6 110 66;
+      --c-butter-50: 254 252 226;
+      --c-butter-100: 252 245 182;
+      --c-butter-200: 244 228 110;
+      --c-butter-300: 222 190 16;
+      --c-butter-700: 118 94 0;
+      --c-blush-50: 255 237 242;
+      --c-blush-100: 255 214 226;
+      --c-blush-200: 252 166 192;
+      --c-blush-300: 236 54 104;
+      --c-blush-700: 166 16 58;
+      --bg: #EEF1F8; --haze: .10; --grid-a: .07; --scan: 0; --glow: 0;
+      --page-from: #EEF1F8; --page-via: #F4F6FB; --page-to: #EAF4F8;
+      --scroll-thumb: #b8c2d6; --drop: #14b6d4;
+      /* Chart series (Focus page): a validated categorical order, colorblind-safe on these surfaces. */
+      --series-1: #2a78d6; --series-2: #eb6834; --series-3: #1baf7a; --series-4: #eda100;
+      --series-5: #e87ba4; --series-6: #008300; --series-7: #4a3aa7; --series-8: #e34948; --series-other: #898781;
+      --seq-1: #cde2fb; --seq-2: #9ec5f4; --seq-3: #6da7ec; --seq-4: #3987e5; --seq-5: #256abf; --seq-6: #184f95;
+      color-scheme: light;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+      --c-slate-50: 17 20 38;
+      --c-slate-100: 23 27 50;
+      --c-slate-200: 34 40 70;
+      --c-slate-300: 54 61 98;
+      --c-slate-400: 126 134 174;
+      --c-slate-500: 146 154 192;
+      --c-slate-600: 172 180 214;
+      --c-slate-700: 202 209 234;
+      --c-slate-800: 226 231 246;
+      --c-slate-900: 243 246 253;
+      --c-white: 11 13 27;
+      --c-lavender-50: 7 25 36;
+      --c-lavender-100: 9 39 54;
+      --c-lavender-200: 14 72 92;
+      --c-lavender-300: 0 200 232;
+      --c-lavender-700: 0 234 255;
+      --c-lavender-800: 150 248 255;
+      --c-baby-50: 8 18 42;
+      --c-baby-100: 12 30 66;
+      --c-baby-200: 24 56 114;
+      --c-baby-300: 76 146 255;
+      --c-baby-700: 146 190 255;
+      --c-peach-50: 40 19 7;
+      --c-peach-100: 60 29 9;
+      --c-peach-200: 112 54 16;
+      --c-peach-300: 255 140 50;
+      --c-peach-700: 255 182 120;
+      --c-lilac-50: 34 10 37;
+      --c-lilac-100: 53 14 58;
+      --c-lilac-200: 96 24 102;
+      --c-lilac-300: 255 60 220;
+      --c-lilac-700: 255 136 238;
+      --c-mint-50: 6 33 23;
+      --c-mint-100: 8 51 35;
+      --c-mint-200: 14 92 62;
+      --c-mint-300: 40 240 152;
+      --c-mint-700: 130 250 196;
+      --c-butter-50: 35 31 6;
+      --c-butter-100: 55 49 8;
+      --c-butter-200: 100 90 14;
+      --c-butter-300: 250 230 42;
+      --c-butter-700: 252 240 128;
+      --c-blush-50: 42 8 18;
+      --c-blush-100: 64 12 29;
+      --c-blush-200: 114 22 50;
+      --c-blush-300: 255 52 104;
+      --c-blush-700: 255 140 168;
+      --bg: #05060E; --haze: .16; --grid-a: .055; --scan: .07; --glow: 1;
+      --page-from: #05060E; --page-via: #080A18; --page-to: #05070F;
+      --scroll-thumb: #283064; --drop: #00EAFF;
+      --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70; --series-4: #c98500;
+      --series-5: #d55181; --series-6: #008300; --series-7: #9085e9; --series-8: #e66767; --series-other: #898781;
+      --seq-1: #184f95; --seq-2: #1c5cab; --seq-3: #256abf; --seq-4: #3987e5; --seq-5: #6da7ec; --seq-6: #9ec5f4;
+      color-scheme: dark;
+      }
+    }
+    :root[data-theme="dark"] {
+      --c-slate-50: 17 20 38;
+      --c-slate-100: 23 27 50;
+      --c-slate-200: 34 40 70;
+      --c-slate-300: 54 61 98;
+      --c-slate-400: 126 134 174;
+      --c-slate-500: 146 154 192;
+      --c-slate-600: 172 180 214;
+      --c-slate-700: 202 209 234;
+      --c-slate-800: 226 231 246;
+      --c-slate-900: 243 246 253;
+      --c-white: 11 13 27;
+      --c-lavender-50: 7 25 36;
+      --c-lavender-100: 9 39 54;
+      --c-lavender-200: 14 72 92;
+      --c-lavender-300: 0 200 232;
+      --c-lavender-700: 0 234 255;
+      --c-lavender-800: 150 248 255;
+      --c-baby-50: 8 18 42;
+      --c-baby-100: 12 30 66;
+      --c-baby-200: 24 56 114;
+      --c-baby-300: 76 146 255;
+      --c-baby-700: 146 190 255;
+      --c-peach-50: 40 19 7;
+      --c-peach-100: 60 29 9;
+      --c-peach-200: 112 54 16;
+      --c-peach-300: 255 140 50;
+      --c-peach-700: 255 182 120;
+      --c-lilac-50: 34 10 37;
+      --c-lilac-100: 53 14 58;
+      --c-lilac-200: 96 24 102;
+      --c-lilac-300: 255 60 220;
+      --c-lilac-700: 255 136 238;
+      --c-mint-50: 6 33 23;
+      --c-mint-100: 8 51 35;
+      --c-mint-200: 14 92 62;
+      --c-mint-300: 40 240 152;
+      --c-mint-700: 130 250 196;
+      --c-butter-50: 35 31 6;
+      --c-butter-100: 55 49 8;
+      --c-butter-200: 100 90 14;
+      --c-butter-300: 250 230 42;
+      --c-butter-700: 252 240 128;
+      --c-blush-50: 42 8 18;
+      --c-blush-100: 64 12 29;
+      --c-blush-200: 114 22 50;
+      --c-blush-300: 255 52 104;
+      --c-blush-700: 255 140 168;
+      --bg: #05060E; --haze: .16; --grid-a: .055; --scan: .07; --glow: 1;
+      --page-from: #05060E; --page-via: #080A18; --page-to: #05070F;
+      --scroll-thumb: #283064; --drop: #00EAFF;
+      --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70; --series-4: #c98500;
+      --series-5: #d55181; --series-6: #008300; --series-7: #9085e9; --series-8: #e66767; --series-other: #898781;
+      --seq-1: #184f95; --seq-2: #1c5cab; --seq-3: #256abf; --seq-4: #3987e5; --seq-5: #6da7ec; --seq-6: #9ec5f4;
+      color-scheme: dark;
+    }
+
+    /* ---- Backdrop: a faint grid with two colored hazes, and (dark only) fine scanlines over everything. */
+    body {
+      background-color: var(--bg);
+      background-image:
+        radial-gradient(60rem 36rem at 88% -12%, rgb(var(--c-lilac-300) / var(--haze)), transparent 62%),
+        radial-gradient(54rem 34rem at -8% 112%, rgb(var(--c-lavender-300) / var(--haze)), transparent 62%),
+        linear-gradient(rgb(var(--c-lavender-300) / var(--grid-a)) 1px, transparent 1px),
+        linear-gradient(90deg, rgb(var(--c-lavender-300) / var(--grid-a)) 1px, transparent 1px);
+      background-size: auto, auto, 36px 36px, 36px 36px;
+      background-attachment: fixed;
+    }
+    body::after { content: ''; position: fixed; inset: 0; z-index: 70; pointer-events: none;
+      background: repeating-linear-gradient(to bottom, rgb(0 0 0 / var(--scan)) 0 1px, transparent 1px 3px); }
+    ::selection { background: rgb(var(--c-lilac-300) / .35); }
+
+    /* ---- Type: Orbitron for titles, Rajdhani for everything you read, Share Tech Mono for numbers and labels.
+       Rajdhani runs small, so the root size is a touch larger and its lightest weight is 500. */
+    html { font-size: 17px; }
+    body { font-weight: 500; }
+    h1, h2, .font-display { font-family: Orbitron, Rajdhani, ui-sans-serif, sans-serif; letter-spacing: .04em; font-weight: 700; }
+    h1 { position: relative; text-shadow: 0 0 calc(var(--glow) * 18px) rgb(var(--c-lavender-300) / .45); }
+    h3 { letter-spacing: .02em; }
+    :is(button, a).bg-lavender-700 { text-transform: uppercase; letter-spacing: .08em; font-weight: 700; }
+    .neon-text { text-shadow: 0 0 calc(var(--glow) * 14px) currentColor; }
+
+    /* ---- Shape: pills become squared tags; dots, rings and avatars stay round. Primary buttons get a
+       clipped corner (dropped while keyboard-focused so the focus ring shows in full). */
+    :is(button, a, input, select, textarea, form, nav, label, kbd).rounded-full,
+    span.rounded-full[class*="px-"], div.rounded-full[class*="border"]:not([class*="w-"]) { border-radius: 3px; }
+    :is(button, a).bg-lavender-700 { clip-path: polygon(0 0, calc(100% - 7px) 0, 100% 7px, 100% 100%, 7px 100%, 0 calc(100% - 7px)); }
+    :is(button, a).bg-lavender-700:focus-visible { clip-path: none; }
+    :is(button, a):focus-visible { outline: 2px solid rgb(var(--c-lavender-700)); outline-offset: 2px; }
+
+    /* ---- Neon edges: outlined controls, inputs and cards light up on hover / focus. */
+    :is(button, a)[class*="border-lavender-200"]:not(:disabled):hover,
+    :is(button, a)[class*="border-slate-300"]:not(:disabled):hover {
+      border-color: rgb(var(--c-lavender-300)); color: rgb(var(--c-lavender-700));
+      box-shadow: 0 0 0 1px rgb(var(--c-lavender-300) / .35), 0 0 calc(var(--glow) * 14px + 2px) -3px rgb(var(--c-lavender-300) / .6);
+    }
+    :is(input:not([type=checkbox]):not([type=radio]):not([type=range]), textarea, select)[class*="border"]:focus,
+    [class*="focus-within:ring"]:focus-within {
+      border-color: rgb(var(--c-lavender-300));
+      box-shadow: 0 0 0 1px rgb(var(--c-lavender-300) / .7), 0 0 calc(var(--glow) * 16px + 2px) -4px rgb(var(--c-lavender-300) / .7) !important;
+    }
+    .card, .proj, .bubble { transition: box-shadow .2s, border-color .2s, transform .2s, filter .2s; }
+    .card:hover, a.proj:hover {
+      border-color: rgb(var(--c-lavender-300) / .8);
+      box-shadow: 0 0 0 1px rgb(var(--c-lavender-300) / .45), 0 0 calc(var(--glow) * 22px + 4px) -6px rgb(var(--c-lavender-300) / .65);
+    }
+    .card { position: relative; overflow: hidden; }
+    .card::after { content: ''; position: absolute; top: 0; bottom: 0; left: -60%; width: 40%; pointer-events: none; transform: skewX(-20deg);
+      background: linear-gradient(90deg, transparent, rgb(var(--c-lavender-300) / .2), transparent); }
+    .card:hover::after { animation: sweep .65s ease-out; }
+    :is(button, a).bg-lavender-700:not(:disabled):hover { animation: jitter .18s steps(2, end) 1; }
+    .bubble:hover { box-shadow: 0 0 calc(var(--glow) * 12px + 2px) -3px rgb(var(--c-lavender-300) / .6); }
+    a.proj > div:first-child { box-shadow: 0 0 calc(var(--glow) * 14px) 0 currentColor; }
+
+    /* ---- Header: a thin cyan-to-magenta line along the bottom. */
+    header.app-head::after { content: ''; position: absolute; left: 0; right: 0; bottom: -1px; height: 1px; pointer-events: none;
+      background: linear-gradient(90deg, transparent, rgb(var(--c-lavender-300) / .9) 20%, rgb(var(--c-lilac-300) / .9) 80%, transparent);
+      box-shadow: 0 0 calc(var(--glow) * 10px) rgb(var(--c-lavender-300) / .6); }
+    /* The longest chain of waiting to-dos, lit up on the board, with each card's step number. */
+    .chain-on { position: relative; box-shadow: 0 0 0 2px rgb(var(--c-peach-300)), 0 0 calc(var(--glow) * 18px) -2px rgb(var(--c-peach-300) / .8) !important; }
+    .chain-n { position: absolute; bottom: .45rem; right: .45rem; z-index: 2; min-width: 1.25rem; height: 1.25rem; padding: 0 .25rem; display: flex; align-items: center; justify-content: center;
+      border-radius: 9999px; background: rgb(var(--c-peach-300)); color: rgb(var(--c-white)); font-size: 11px; font-weight: 800; }
+    /* ---- Phone (mobile.js): bottom tab bar, bottom sheets, gestures, safe areas. Desktop is untouched. */
+    .mobile-only { display: none; }
+    body { -webkit-tap-highlight-color: transparent; }
+    .is-standalone .app-head { padding-top: env(safe-area-inset-top); }
+    .is-mobile .mobile-only { display: flex; }
+    .is-mobile .app-head nav[aria-label="Switch view"], .is-mobile #chat-btn { display: none; }
+    .is-mobile #app { padding-bottom: calc(5.5rem + env(safe-area-inset-bottom)); padding-left: max(1rem, env(safe-area-inset-left)); padding-right: max(1rem, env(safe-area-inset-right)); }
+    .is-mobile #toasts { bottom: calc(5.25rem + env(safe-area-inset-bottom)); }
+    .is-mobile input:not([type=checkbox]):not([type=radio]):not([type=range]), .is-mobile textarea, .is-mobile select { font-size: 16px; }   /* no zoom on focus */
+    .is-mobile .card, .is-mobile [data-task], #tabbar { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+    #tabbar { position: fixed; z-index: 35; left: 0; right: 0; bottom: 0; align-items: flex-end; justify-content: space-around;
+      padding: .35rem max(.5rem, env(safe-area-inset-left)) calc(.35rem + env(safe-area-inset-bottom));
+      background: rgb(var(--c-white) / .88); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border-top: 1px solid rgb(var(--c-lavender-200) / .6); }
+    #tabbar .tab { position: relative; flex: 1; display: flex; flex-direction: column; align-items: center; gap: .1rem; padding: .3rem 0; color: rgb(var(--c-slate-500)); font-size: 10px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+    #tabbar .tab .ico { width: 1.45rem; height: 1.45rem; }
+    #tabbar .tab.is-on { color: rgb(var(--c-lavender-700)); }
+    #tabbar .tab.is-on .tab-ico { filter: drop-shadow(0 0 calc(var(--glow) * 6px) rgb(var(--c-lavender-300))); }
+    #tabbar .tab:active { transform: scale(.94); }
+    #tabbar .tab-add { flex: 0 0 auto; width: 3.25rem; height: 3.25rem; margin: 0 .25rem .3rem; border-radius: 9999px; background: rgb(var(--c-lavender-700)); color: rgb(var(--c-white));
+      font-size: 1.9rem; line-height: 1; box-shadow: 0 0 0 4px rgb(var(--c-white)), 0 0 calc(var(--glow) * 18px) rgb(var(--c-lavender-300) / .8); }
+    #tabbar .tab-add:active { transform: scale(.92); }
+    #tabbar .tab-badge { position: absolute; top: 0; left: 55%; min-width: 1.1rem; height: 1.1rem; padding: 0 .25rem; border-radius: 9999px; background: rgb(var(--c-butter-300)); color: #0b0d1b; font-size: 10px; line-height: 1.1rem; text-align: center; }
+    /* Pop-ups and side panels become bottom sheets. */
+    .is-mobile [data-sheet] { padding: 0 !important; align-items: flex-end !important; justify-content: stretch !important; overflow: hidden !important; }
+    .is-mobile [data-sheet] > [role=dialog] { width: 100% !important; max-width: none !important; height: auto !important; max-height: calc(100dvh - env(safe-area-inset-top) - 1.5rem) !important;
+      margin: 0 !important; border-radius: 14px 14px 0 0 !important; padding-bottom: calc(1.25rem + env(safe-area-inset-bottom)) !important; overflow-y: auto; overscroll-behavior: contain;
+      transition: transform .22s ease; animation: sheet-up .26s cubic-bezier(.2,.8,.2,1) !important; }
+    .sheet-handle { position: sticky; top: 0; z-index: 5; height: 1.4rem; margin: -.75rem auto .25rem; display: flex; justify-content: center; align-items: center; }
+    .sheet-handle::before { content: ""; width: 2.5rem; height: 5px; border-radius: 9999px; background: rgb(var(--c-slate-300)); }
+    @keyframes sheet-up { from { transform: translateY(100%); } }
+    /* Swipe feedback: the colour of what letting go will do. */
+    .is-mobile [data-swipe="done"], .is-mobile [data-swipe="next"] { box-shadow: inset 6px 0 0 rgb(var(--c-mint-300)) !important; }
+    .is-mobile [data-swipe="tomorrow"], .is-mobile [data-swipe="back"] { box-shadow: inset -6px 0 0 rgb(var(--c-butter-300)) !important; }
+    #ptr { position: fixed; z-index: 36; top: calc(env(safe-area-inset-top) + 3.5rem); left: 50%; transform: translate(-50%, -60px); width: 2.25rem; height: 2.25rem; border-radius: 9999px;
+      display: flex; align-items: center; justify-content: center; background: rgb(var(--c-white)); color: rgb(var(--c-lavender-700)); box-shadow: 0 0 0 1px rgb(var(--c-lavender-200)); pointer-events: none; opacity: 0; }
+    #ptr.is-pulling { opacity: 1; }
+    /* On the phone, Today leads with your to-dos: the timer has its own tab, the status strip is desktop-only. */
+    .is-mobile .hud:not(.timer-screen) .hud-hero, .is-mobile .hud [data-hud-strip] { display: none; }
+    .is-mobile .hud .order-first { order: 0; }
+    .is-mobile .hud .hud-col { display: flex; flex-direction: column; }
+    .is-mobile .hud .hud-grow-more { order: -1; }
+    /* Page and popup headers: the title (or breadcrumb) on its own line, the buttons under it. */
+    .is-mobile .block-head, .is-mobile .pp-head { flex-direction: column; align-items: stretch; gap: .6rem; }
+    .is-mobile .block-head > div:last-child, .is-mobile .pp-head > div:last-child { flex-wrap: wrap; justify-content: flex-start; }
+    .is-mobile .pp-head > div:last-child [data-close] { margin-left: auto; }
+    #ptr.is-ready { background: rgb(var(--c-lavender-700)); color: rgb(var(--c-white)); }
+    #offline-banner { position: fixed; z-index: 60; left: 50%; transform: translateX(-50%); top: calc(env(safe-area-inset-top) + .5rem); max-width: calc(100% - 2rem);
+      padding: .4rem .9rem; border-radius: 9999px; font-size: 12px; font-weight: 700; background: rgb(var(--c-blush-300)); color: #fff; box-shadow: 0 6px 20px -6px rgb(0 0 0 / .5); }
+    /* The full-height chat stays above the on-screen keyboard. */
+    .is-mobile #chat { top: var(--vvtop, 0) !important; height: var(--vvh, 100dvh) !important; padding-top: env(safe-area-inset-top); }
+    /* The full-screen timer. */
+    .timer-screen { min-height: calc(100dvh - 9rem - env(safe-area-inset-top) - env(safe-area-inset-bottom)); display: flex; align-items: center; }
+    .timer-screen > section { width: 100%; }
+    /* Touch screens have no hover: show the buttons that only appear on hover. */
+    @media (hover: none) { [class*="group-hover:opacity-100"] { opacity: 1 !important; } }
+    /* Board filter: what doesn't match fades back (layout stays put). */
+    .flt-dim { opacity: .22; filter: grayscale(.8); transition: opacity .15s, filter .15s; }
+    .flt-dim:hover { opacity: .6; }
+    /* Checkboxes and radios in the squared neon style: a thin frame that fills with a solid inner block
+       (a dot for radios) and glows when on. The accent follows the text-* color class they already carry. */
+    input[type=checkbox], input[type=radio] {
+      --cb: var(--c-lavender-300);
+      appearance: none; -webkit-appearance: none; flex: none; display: inline-block; vertical-align: -.15em;
+      width: 1rem; height: 1rem; margin: 0; cursor: pointer; border-radius: 2px;
+      border: 1.5px solid rgb(var(--cb) / .75); background: rgb(var(--c-white));
+      transition: background-color .15s, box-shadow .15s, border-color .15s;
+    }
+    input[type=radio] { border-radius: 9999px; }
+    input[type=checkbox]:hover:not(:disabled), input[type=radio]:hover:not(:disabled) { border-color: rgb(var(--cb)); box-shadow: 0 0 0 3px rgb(var(--cb) / .15); }
+    input[type=checkbox]:checked, input[type=radio]:checked {
+      border-color: rgb(var(--cb)); background: rgb(var(--cb));
+      box-shadow: inset 0 0 0 2.5px rgb(var(--c-white)), 0 0 calc(var(--glow) * 8px) rgb(var(--cb) / .7);
+    }
+    input[type=checkbox]:focus-visible, input[type=radio]:focus-visible { outline: 2px solid rgb(var(--cb) / .6); outline-offset: 2px; }
+    input[type=checkbox]:disabled, input[type=radio]:disabled { cursor: not-allowed; opacity: .4; }
+    input.text-blush-700:is([type=checkbox], [type=radio]) { --cb: var(--c-blush-300); }
+    input.text-butter-700:is([type=checkbox], [type=radio]) { --cb: var(--c-butter-300); }
+    input.text-mint-700:is([type=checkbox], [type=radio]) { --cb: var(--c-mint-300); }
+    input.text-lilac-700:is([type=checkbox], [type=radio]) { --cb: var(--c-lilac-300); }
+    .ico { display: inline-block; width: 1.15em; height: 1.15em; vertical-align: -.2em; flex: none; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: square; }
+
+    /* ---- The logo never sits still: a magenta light runs around its frame, the inner frame turns a
+       quarter now and then, the core flickers between cyan and magenta, and the name glitches every few seconds. */
+    .logo-trace { stroke-dasharray: 16 84; animation: logo-trace 3.2s linear infinite; filter: drop-shadow(0 0 calc(var(--glow) * 3px) rgb(var(--c-lilac-300))); }
+    @keyframes logo-trace { from { stroke-dashoffset: 100; } to { stroke-dashoffset: 0; } }
+    .logo-core { transform-box: fill-box; transform-origin: center; animation: logo-core 6s cubic-bezier(.7,0,.3,1) infinite; }
+    @keyframes logo-core { 0%, 40% { transform: rotate(0); } 50%, 90% { transform: rotate(90deg); } 100% { transform: rotate(180deg); } }
+    .logo-dot { fill: rgb(var(--c-lilac-300)); transform-box: fill-box; transform-origin: center; animation: logo-dot 2.4s steps(1, end) infinite; }
+    @keyframes logo-dot { 0% { fill: rgb(var(--c-lilac-300)); } 30% { fill: rgb(var(--c-lavender-700)); transform: scale(1.3); } 34% { fill: rgb(var(--c-lilac-300)); transform: none; }
+      62% { fill: rgb(var(--c-lavender-700)); } 66% { fill: rgb(var(--c-lilac-300)); opacity: .3; } 70% { opacity: 1; } }
+    .logo-text { position: relative; display: inline-block; animation: logo-text 7s steps(1, end) infinite; }
+    .logo-text::before, .logo-text::after { content: attr(data-text); position: absolute; inset: 0; pointer-events: none; opacity: 0; }
+    .logo-text::before { color: rgb(var(--c-lilac-300)); animation: logo-glitch-a 7s steps(1, end) infinite; }
+    .logo-text::after { color: rgb(var(--c-lavender-300)); animation: logo-glitch-b 7s steps(1, end) infinite; }
+    @keyframes logo-text { 0%, 100% { text-shadow: 0 0 calc(var(--glow) * 10px) rgb(var(--c-lavender-300) / .5); }
+      45% { text-shadow: 0 0 calc(var(--glow) * 16px) rgb(var(--c-lavender-300) / .8); } 46% { text-shadow: none; opacity: .6; } 47% { opacity: 1; }
+      88% { transform: skewX(-12deg) translateX(-1px); } 89% { transform: skewX(8deg) translateX(2px); } 90% { transform: none; } }
+    @keyframes logo-glitch-a { 0%, 87% { opacity: 0; } 88% { opacity: 1; clip-path: inset(0 0 60% 0); transform: translate(-4px, -1px); }
+      89% { clip-path: inset(55% 0 5% 0); transform: translate(3px, 1px); } 90% { clip-path: inset(25% 0 45% 0); transform: translate(-2px, 0); } 91%, 100% { opacity: 0; } }
+    @keyframes logo-glitch-b { 0%, 87% { opacity: 0; } 88% { opacity: 1; clip-path: inset(62% 0 2% 0); transform: translate(4px, 1px); }
+      89% { clip-path: inset(8% 0 70% 0); transform: translate(-3px, 0); } 90% { clip-path: inset(40% 0 30% 0); transform: translate(2px, 0); } 91%, 100% { opacity: 0; } }
+
+    /* ---- HUD: the focus timer is the centerpiece, framed in magenta; it breathes while it's running. */
+    .hud-hero { border-color: rgb(var(--c-lilac-300) / .55);
+      background: linear-gradient(160deg, rgb(var(--c-lilac-50) / .92), rgb(var(--c-white) / .86) 45%, rgb(var(--c-lavender-50) / .85));
+      box-shadow: inset 0 1px 0 rgb(var(--c-lilac-300) / .2), 0 0 calc(var(--glow) * 30px) -12px rgb(var(--c-lilac-300) / .7); }
+    .hud-hero::before, .hud-hero::after { width: 22px; height: 22px; }
+    .hud-hero .hud-label { font-size: 12px; color: rgb(var(--c-lilac-700)); }
+    .hud-hero [data-hud-timer] { text-shadow: 0 0 calc(var(--glow) * 22px) rgb(var(--c-lilac-300) / .55); }
+    .hud-hero.is-running { animation: hero-breathe 2.6s ease-in-out infinite; }
+    /* The dial is never still: a dotted orbit with a light turns around it (slowly at rest, faster while
+       the timer runs) and the ring's glow breathes. */
+    .timer-orbit { pointer-events: none; animation: orbit 32s linear infinite; }
+    .hud-hero.is-running .timer-orbit { animation-duration: 7s; }
+    .timer-orbit .orbit-dot { filter: drop-shadow(0 0 calc(var(--glow) * 5px + 1px) rgb(var(--c-lilac-300))); }
+    @keyframes orbit { to { transform: rotate(360deg); } }
+    .hud-hero [data-hud-timer-ring] { animation: ring-glow 4s ease-in-out infinite; }
+    .hud-hero.is-running [data-hud-timer-ring] { animation-duration: 2s; }
+    @keyframes ring-glow { 50% { filter: drop-shadow(0 0 calc(var(--glow) * 7px + 1px) rgb(var(--c-lilac-300) / .9)); } }
+    @keyframes hero-breathe { 50% { box-shadow: inset 0 1px 0 rgb(var(--c-lilac-300) / .3), 0 0 calc(var(--glow) * 46px) -8px rgb(var(--c-lilac-300) / .95); border-color: rgb(var(--c-lilac-300) / .9); } }
+
+    /* ---- HUD: daily pomodoro marks, the to-do the timer is on, and the timer as a drop target. */
+    .pomo-pip { width: 7px; height: 7px; flex: none; border: 1px solid rgb(var(--c-lilac-300) / .8); transform: skewX(-12deg); }
+    .pomo-pip.on { background: rgb(var(--c-lilac-300)); box-shadow: 0 0 calc(var(--glow) * 6px) rgb(var(--c-lilac-300)); }
+    .hud-task-on { box-shadow: inset 2px 0 0 rgb(var(--c-lilac-300)); background: rgb(var(--c-lilac-50) / .6); }
+    [data-hud-drag].dragging { opacity: .45; }
+    [data-hud-drop].hud-drop-ready { border-color: rgb(var(--c-lilac-300) / .8); border-style: dashed; }
+    [data-hud-drop].hud-drop-on { border-style: solid; border-color: rgb(var(--c-lilac-300));
+      box-shadow: inset 0 0 30px rgb(var(--c-lilac-300) / .25), 0 0 calc(var(--glow) * 26px) -4px rgb(var(--c-lilac-300) / .8); }
+
+    /* ---- Right-click menu: a framed neon panel that unfolds from the pointer; rows light up like search results. */
+    .cm { background-image: linear-gradient(90deg, rgb(var(--c-lavender-300)), rgb(var(--c-lilac-300))); background-size: 100% 2px; background-repeat: no-repeat;
+      box-shadow: 0 0 0 1px rgb(var(--c-lavender-200) / .6), 0 18px 40px -12px rgb(0 0 0 / .7), 0 0 calc(var(--glow) * 28px) -10px rgb(var(--c-lavender-300) / .6); outline: none; }
+    .cm-item { border-left: 2px solid transparent; outline: none; }
+    .cm-item:focus, .cm-item.is-open { background: rgb(var(--c-lavender-100) / .75); border-left-color: rgb(var(--c-lavender-300));
+      box-shadow: 0 0 calc(var(--glow) * 14px) -6px rgb(var(--c-lavender-300) / .8); }
+    .cm-item.text-blush-700:focus { background: rgb(var(--c-blush-100) / .8); border-left-color: rgb(var(--c-blush-300)); }
+    .cm-item[aria-disabled] { cursor: default; }
+    @keyframes cm-in { from { opacity: 0; clip-path: inset(0 100% 100% 0); filter: brightness(2); } 60% { opacity: 1; } to { clip-path: inset(0 0 0 0); } }
+    @keyframes cm-item-in { from { opacity: 0; transform: translateX(-6px); } }
+    .a-cm-in { animation: cm-in .2s cubic-bezier(.3,.7,.2,1) both; }
+    .a-cm-item-in { animation: cm-item-in .16s ease-out both; }
+
+    /* ---- Lightbox: browse arrows, and buttons in the same squared neon style. */
+    .lb-btn { border: 1px solid rgb(255 255 255 / .3); border-radius: 3px; padding: .3rem .7rem; color: #fff; font-weight: 600; background: rgb(0 0 0 / .35); transition: border-color .15s, box-shadow .15s, background .15s; }
+    .lb-btn:hover { border-color: rgb(var(--c-lavender-300)); background: rgb(var(--c-lavender-300) / .2); box-shadow: 0 0 14px -2px rgb(var(--c-lavender-300) / .8); }
+    .lb-nav { position: absolute; top: 50%; transform: translateY(-50%); width: 2.5rem; height: 3.5rem; font-size: 2rem; line-height: 1; color: #fff;
+      background: rgb(0 0 0 / .45); border: 1px solid rgb(255 255 255 / .25); border-radius: 3px; }
+    .lb-nav:hover { border-color: rgb(var(--c-lavender-300)); box-shadow: 0 0 16px -2px rgb(var(--c-lavender-300) / .9); }
+    @keyframes lb-next { from { opacity: 0; transform: translateX(24px); clip-path: inset(0 0 0 60%); filter: brightness(1.8); } to { clip-path: inset(0 0 0 0); } }
+    @keyframes lb-prev { from { opacity: 0; transform: translateX(-24px); clip-path: inset(0 60% 0 0); filter: brightness(1.8); } to { clip-path: inset(0 0 0 0); } }
+    .a-lb-next { animation: lb-next .3s cubic-bezier(.3,.7,.2,1) both; }
+    .a-lb-prev { animation: lb-prev .3s cubic-bezier(.3,.7,.2,1) both; }
+
+    /* ---- Quick search (⌘K): the selected row gets a neon edge. */
+    .spot-row { border-left: 2px solid transparent; }
+    .spot-row .spot-enter { visibility: hidden; }
+    .spot-row.is-sel { background: rgb(var(--c-lavender-100) / .7); border-left-color: rgb(var(--c-lavender-300));
+      box-shadow: 0 0 calc(var(--glow) * 16px) -6px rgb(var(--c-lavender-300) / .8); }
+    .spot-row.is-sel .spot-enter { visibility: visible; }
+    .spot-hit { background: none; color: rgb(var(--c-lavender-700)); text-shadow: 0 0 calc(var(--glow) * 8px) rgb(var(--c-lavender-300) / .7); }
+    #spot-q { font-family: "Share Tech Mono", ui-monospace, monospace; letter-spacing: .02em; }
+
+    /* ---- Tree view: branches drawn left to right with neon connector lines. */
+    .tree-branch { display: flex; align-items: center; width: max-content; }
+    .tree-node { position: relative; z-index: 1; transition: border-color .2s, box-shadow .2s; }
+    .tree-node:hover { border-color: rgb(var(--c-lavender-300)); box-shadow: 0 0 calc(var(--glow) * 16px) -4px rgb(var(--c-lavender-300) / .7); }
+    .tree-root { border-color: rgb(var(--c-lavender-300)); box-shadow: inset 2px 0 0 rgb(var(--c-lavender-300)), 0 0 calc(var(--glow) * 18px) -6px rgb(var(--c-lavender-300) / .8); }
+    .tree-branch > ul { position: relative; margin: 0 0 0 16px; padding: 0; list-style: none; }
+    .tree-branch > ul::before { content: ''; position: absolute; left: -16px; top: 50%; width: 16px; border-top: 1px solid rgb(var(--c-lavender-300) / .55); }
+    .tree-branch > ul > li { position: relative; padding: 4px 0 4px 18px; }
+    .tree-branch > ul > li::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; border-left: 1px solid rgb(var(--c-lavender-300) / .55); }
+    .tree-branch > ul > li:first-child::before { top: 50%; }
+    .tree-branch > ul > li:last-child::before { bottom: 50%; }
+    .tree-branch > ul > li:only-child::before { display: none; }
+    .tree-branch > ul > li::after { content: ''; position: absolute; left: 0; top: 50%; width: 18px; height: 1px;
+      background: linear-gradient(90deg, rgb(var(--c-lavender-300) / .5) 0 35%, rgb(var(--c-lavender-700)) 50%, rgb(var(--c-lavender-300) / .5) 65% 100%);
+      background-size: 300% 100%; animation: flow 2.8s linear infinite; }
+    .tree-branch > ul > li.tree-ghost::after { background: none; border-top: 1px dashed rgb(var(--c-lavender-300) / .55); animation: none; }
+    @keyframes flow { from { background-position: 100% 0; } to { background-position: 0 0; } }
+    .tree-branch > ul > li.tree-ghost::before { border-left-style: dashed; }
+    .tree-plus { opacity: 0; }
+    .tree-node:hover .tree-plus, .tree-plus:focus-visible { opacity: 1; }
+    @media (hover: none) { .tree-plus { opacity: 1; } }
+
+    /* ---- Idle motion: small, slow loops that keep the interface alive without pulling focus.
+       Text never changes: glitch layers repeat the element's own text (data-text). */
+    @keyframes idle-glitch-a { 0%, 94% { opacity: 0; } 95% { opacity: .9; clip-path: inset(8% 0 58% 0); transform: translate(-4px, 0); }
+      96% { clip-path: inset(62% 0 8% 0); transform: translate(3px, 0); } 97%, 100% { opacity: 0; } }
+    @keyframes idle-glitch-b { 0%, 94% { opacity: 0; } 95% { opacity: .9; clip-path: inset(58% 0 14% 0); transform: translate(4px, 0); }
+      96% { clip-path: inset(4% 0 72% 0); transform: translate(-2px, 0); } 97%, 100% { opacity: 0; } }
+    #app :is(h1, [data-hud-time])[data-text]:not(.a-glitch)::before,
+    #app :is(h1, [data-hud-time])[data-text]:not(.a-glitch)::after { content: attr(data-text); position: absolute; inset: 0; pointer-events: none; opacity: 0; text-shadow: none; }
+    #app :is(h1, [data-hud-time])[data-text]:not(.a-glitch)::before { color: rgb(var(--c-lilac-300)); animation: idle-glitch-a 9s steps(1, end) infinite; }
+    #app :is(h1, [data-hud-time])[data-text]:not(.a-glitch)::after { color: rgb(var(--c-lavender-300)); animation: idle-glitch-b 9s steps(1, end) infinite; }
+    [data-hud-time] { position: relative; display: inline-block; }
+    [data-hud-time][data-text]:not(.a-glitch)::before, [data-hud-time][data-text]:not(.a-glitch)::after { animation-duration: 13s !important; }
+    .colon { animation: colon 1s steps(1, end) infinite; }
+    @keyframes colon { 50% { opacity: .2; } }
+    /* Panel labels flicker like old neon now and then; corner brackets breathe. */
+    @keyframes label-flicker { 0%, 95% { opacity: 1; } 96% { opacity: .3; } 97% { opacity: 1; } 98% { opacity: .5; } 99% { opacity: 1; } }
+    .hud-label { animation: label-flicker 12s steps(1, end) infinite; }
+    .hud-col > :nth-child(2) .hud-label { animation-delay: -4s; } .hud-col > :nth-child(3) .hud-label { animation-delay: -7s; } .hud-col > :nth-child(4) .hud-label { animation-delay: -10s; }
+    @keyframes bracket { 50% { opacity: .35; } }
+    .hud-panel::before { animation: bracket 4.5s ease-in-out infinite; }
+    .hud-panel::after { animation: bracket 4.5s ease-in-out -2.25s infinite; }
+    /* Today on the week strip glows softly; the header's neon line has a light running along it. */
+    @keyframes today-glow { 50% { box-shadow: 0 0 calc(var(--glow) * 22px) -2px rgb(var(--c-lavender-300) / .9); } }
+    .hud-today { animation: today-glow 3s ease-in-out infinite; }
+    header.app-head::after { background-size: 200% 100%; animation: header-line 9s ease-in-out infinite alternate; }
+    @keyframes header-line { from { background-position: 0 0; } to { background-position: 100% 0; } }
+    /* Progress bars: a faint light passes along them every few seconds. */
+    @keyframes bar-idle { 0%, 78% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+    [data-bar-fill]:not(.a-sheen)::after { opacity: .45; animation: bar-idle 7s ease-in-out infinite; }
+    /* Main buttons: a glint crosses them now and then. */
+    :is(button, a).bg-lavender-700 { position: relative; overflow: hidden; }
+    :is(button, a).bg-lavender-700::after { content: ''; position: absolute; top: 0; bottom: 0; left: -45%; width: 30%; pointer-events: none;
+      background: linear-gradient(90deg, transparent, rgb(255 255 255 / .5), transparent); transform: skewX(-20deg); animation: glint 8s ease-in-out infinite; }
+    @keyframes glint { 0%, 86% { left: -45%; } 100% { left: 130%; } }
+    /* Workflow: the "work in progress" phase's dots
+       blink and its cards carry a moving top edge (work is happening there). Projects' color bands shimmer. */
+    .dot-live { animation: blink 1.8s infinite; box-shadow: 0 0 calc(var(--glow) * 6px) currentColor; }
+    .card.is-live::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 2px; pointer-events: none;
+      background: linear-gradient(90deg, transparent, rgb(var(--c-peach-300)), transparent); background-size: 40% 100%; background-repeat: no-repeat;
+      animation: edge-run 3.2s ease-in-out infinite; }
+    @keyframes edge-run { from { background-position: -40% 0; } to { background-position: 140% 0; } }
+    a.proj > div:first-child { position: relative; overflow: hidden; }
+    a.proj > div:first-child::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, rgb(255 255 255 / .7), transparent);
+      background-size: 30% 100%; background-repeat: no-repeat; animation: edge-run 5s ease-in-out infinite; }
+    .tree-root { animation: today-glow 3.4s ease-in-out infinite; }
+
+    /* ---- Dialogs, the side panel and toasts: framed, with an accent line on top. */
+    [data-backdrop] { backdrop-filter: blur(3px); }
+    [role=dialog] { border: 1px solid rgb(var(--c-lavender-200) / .8); }
+    [role=dialog] { background-image: linear-gradient(90deg, rgb(var(--c-lavender-300)), rgb(var(--c-lilac-300))); background-size: 100% 2px; background-repeat: no-repeat; }   /* stays on top while the dialog scrolls */
+    #toasts > div { border-left-width: 3px; backdrop-filter: blur(6px); }
+    #chat { border-left-color: rgb(var(--c-lavender-200)); }
+
+    .col-drop { outline: 2px dashed var(--drop); outline-offset: -4px; box-shadow: inset 0 0 24px -8px var(--drop); }
+    .col-deny { opacity: .45; }
+    .col-hot { background: rgb(var(--c-lavender-100) / .22); }
+    @keyframes drop-mark { 50% { opacity: .55; } }
+    .drop-into { position: absolute; top: 2px; right: 6px; z-index: 6; pointer-events: none; max-width: calc(100% - 12px);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border-radius: 9999px; padding: 1px 8px;
+      font-size: 10px; font-weight: 700; letter-spacing: .04em; color: rgb(var(--c-lavender-800)); background: rgb(var(--c-lavender-100) / .95);
+      border: 1px solid rgb(var(--c-lavender-300)); box-shadow: 0 0 calc(var(--glow) * 10px) rgb(var(--c-lavender-300) / .7); animation: drop-in .2s ease-out both; }
+    .drop-mark { position: absolute; left: 6px; right: 6px; height: 3px; margin: 0 !important; border-radius: 2px; pointer-events: none; z-index: 5;
+      background: linear-gradient(90deg, transparent, rgb(var(--c-lavender-300)), rgb(var(--c-lilac-300)), transparent);
+      box-shadow: 0 0 calc(var(--glow) * 10px + 2px) rgb(var(--c-lavender-300) / .8); animation: drop-mark .9s ease-in-out infinite; }
+    .dragging { opacity: .4; }
+    .scroll-thin::-webkit-scrollbar { height: 8px; width: 8px; }
+    .scroll-thin::-webkit-scrollbar-thumb { background: var(--scroll-thumb); border-radius: 2px; }
+    .scroll-thin::-webkit-scrollbar-thumb:hover { background: rgb(var(--c-lavender-300) / .7); }
+
+    /* ---- Motion. Classes are added by app.js's animate(); all of it is skipped with reduced motion.
+       Pages wipe in behind a scan line (down when going deeper, up when going back, across sideways). */
+    #app { position: relative; }
+    @keyframes page-deeper { from { opacity: 0; transform: translateY(8px); clip-path: inset(0 0 100% 0); filter: brightness(1.8); } 50% { opacity: 1; } to { clip-path: inset(0 0 0 0); } }
+    @keyframes page-up     { from { opacity: 0; transform: translateY(-8px); clip-path: inset(100% 0 0 0); filter: brightness(1.8); } 50% { opacity: 1; } to { clip-path: inset(0 0 0 0); } }
+    @keyframes page-side   { from { opacity: 0; transform: translateX(10px); clip-path: inset(0 100% 0 0); } 50% { opacity: 1; } to { clip-path: inset(0 0 0 0); } }
+    @keyframes page-fade   { from { opacity: 0; filter: blur(3px); } }
+    @keyframes scan-down   { from { top: 0; opacity: 1; } 85% { opacity: 1; } to { top: 100%; opacity: 0; } }
+    @keyframes scan-up     { from { top: 100%; opacity: 1; } 85% { opacity: 1; } to { top: 0; opacity: 0; } }
+    #app:is(.a-page-deeper, .a-page-up)::before { content: ''; position: absolute; left: 0; right: 0; height: 2px; margin-top: -3px; z-index: 5; pointer-events: none;
+      background: linear-gradient(90deg, transparent, rgb(var(--c-lavender-300)), rgb(var(--c-lilac-300)), transparent);
+      box-shadow: 0 0 14px 1px rgb(var(--c-lavender-300) / .7); }
+    #app.a-page-deeper::before { animation: scan-down .42s cubic-bezier(.3,.7,.2,1) both; }
+    #app.a-page-up::before     { animation: scan-up .42s cubic-bezier(.3,.7,.2,1) both; }
+    /* Titles (and the HUD clock) glitch as a page arrives: two color-shifted copies of the same text
+       (data-text, set from the element's own text) tear across it in slices, then an aftershock. */
+    @keyframes glitch-main {
+      0%   { opacity: .15; transform: skewX(-14deg); }
+      6%   { opacity: 1; transform: skewX(9deg) translateX(3px); text-shadow: 4px 0 rgb(var(--c-lilac-300) / .8), -4px 0 rgb(var(--c-lavender-300) / .8); }
+      14%  { opacity: .55; transform: translateX(-4px); }
+      22%  { opacity: 1; transform: none; }
+      70%  { transform: none; }
+      74%  { transform: translateX(3px) skewX(-7deg); text-shadow: -3px 0 rgb(var(--c-lilac-300) / .8), 3px 0 rgb(var(--c-lavender-300) / .8); }
+      80%  { transform: none; }
+    }
+    @keyframes glitch-a {
+      0%   { opacity: 1; clip-path: inset(8% 0 62% 0); transform: translate(-8px, -1px); }
+      10%  { clip-path: inset(68% 0 6% 0); transform: translate(6px, 1px); }
+      20%  { clip-path: inset(30% 0 42% 0); transform: translate(-5px, 0); }
+      30%  { clip-path: inset(84% 0 2% 0); transform: translate(9px, 0); }
+      40%  { clip-path: inset(0 0 82% 0); transform: translate(-4px, 0); }
+      50%  { opacity: 1; clip-path: inset(48% 0 30% 0); transform: translate(3px, 0); }
+      58%  { opacity: 0; }
+      72%  { opacity: 1; clip-path: inset(18% 0 64% 0); transform: translate(-7px, 0); }
+      78%  { clip-path: inset(58% 0 22% 0); transform: translate(5px, 0); }
+      84%, 100% { opacity: 0; clip-path: inset(50% 0 50% 0); }
+    }
+    @keyframes glitch-b {
+      0%   { opacity: 1; clip-path: inset(70% 0 4% 0); transform: translate(7px, 1px); }
+      10%  { clip-path: inset(12% 0 70% 0); transform: translate(-6px, -1px); }
+      20%  { clip-path: inset(52% 0 26% 0); transform: translate(5px, 0); }
+      30%  { clip-path: inset(4% 0 80% 0); transform: translate(-9px, 0); }
+      40%  { clip-path: inset(76% 0 8% 0); transform: translate(4px, 0); }
+      50%  { opacity: 1; clip-path: inset(26% 0 54% 0); transform: translate(-3px, 0); }
+      58%  { opacity: 0; }
+      74%  { opacity: 1; clip-path: inset(62% 0 18% 0); transform: translate(6px, 0); }
+      80%  { clip-path: inset(10% 0 74% 0); transform: translate(-5px, 0); }
+      86%, 100% { opacity: 0; clip-path: inset(50% 0 50% 0); }
+    }
+    .a-glitch { position: relative; animation: glitch-main .9s steps(1, end) both; }
+    .a-glitch::before, .a-glitch::after { content: attr(data-text); position: absolute; inset: 0; pointer-events: none; text-shadow: none; }
+    .a-glitch::before { color: rgb(var(--c-lilac-300)); animation: glitch-a .9s steps(1, end) both; }
+    .a-glitch::after { color: rgb(var(--c-lavender-300)); animation: glitch-b .9s steps(1, end) both; }
+
+    /* Panels boot up: a bright line draws across the top, then the frame opens downward and the
+       label flickers on like a neon tube. Cards and bubbles slide in with a skew and an edge flash. */
+    @keyframes boot {
+      0%   { opacity: 0; clip-path: polygon(0 0, 0 0, 0 0, 0 0); }
+      1%   { opacity: 1; }
+      30%  { clip-path: polygon(0 0, 100% 0, 100% 3px, 0 3px); border-color: rgb(var(--c-lavender-300)); box-shadow: inset 0 0 40px rgb(var(--c-lavender-300) / .35); }
+      100% { clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%); }
+    }
+    @keyframes content-in { from { opacity: 0; transform: translateY(6px); } }
+    @keyframes neon-on { 0% { opacity: 0; } 10% { opacity: .9; } 20% { opacity: .1; } 34% { opacity: 1; } 46% { opacity: .3; } 60%, 100% { opacity: 1; } }
+    @keyframes card-in {
+      0%   { opacity: 0; transform: translateX(-16px) skewX(-10deg); filter: brightness(2.2); box-shadow: inset 3px 0 0 rgb(var(--c-lavender-300)), 0 0 24px rgb(var(--c-lavender-300) / .6); }
+      45%  { opacity: 1; transform: translateX(3px) skewX(3deg); }
+      70%  { transform: none; filter: brightness(1.25); }
+    }
+    @keyframes pop-in {
+      from { opacity: 0; transform: translateY(8px); box-shadow: 0 0 0 1px rgb(var(--c-lavender-300) / .9), 0 0 26px -2px rgb(var(--c-lavender-300) / .6); }
+      55% { opacity: 1; }
+    }
+    @keyframes land {
+      0%   { transform: scale(.94) skewX(-7deg); filter: brightness(2); box-shadow: 0 0 0 0 rgb(var(--c-lavender-300) / .9), 0 0 0 0 rgb(var(--c-lilac-300) / 0); }
+      18%  { transform: translateX(4px) skewX(5deg); }
+      36%  { transform: translateX(-2px) scale(1.03); box-shadow: 0 0 0 3px rgb(var(--c-lavender-300) / .6), 0 0 30px 6px rgb(var(--c-lilac-300) / .4); }
+      100% { transform: none; filter: none; box-shadow: 0 0 0 10px rgb(var(--c-lavender-300) / 0), 0 0 0 0 rgb(var(--c-lilac-300) / 0); }
+    }
+    @keyframes tick { from { text-shadow: 0 0 18px currentColor, 0 0 4px currentColor; opacity: .55; } }
+    @keyframes sweep { from { left: -60%; } to { left: 130%; } }
+    @keyframes jitter { 0% { transform: translateX(-2px); text-shadow: 2px 0 rgb(var(--c-lilac-300)); } 50% { transform: translateX(2px); text-shadow: -2px 0 rgb(var(--c-lilac-300)); } }
+    @keyframes fade-in   { from { opacity: 0; } }
+    @keyframes fade-out  { to { opacity: 0; } }
+    @keyframes zoom-in   { from { opacity: 0; transform: translateY(10px) scale(.97); clip-path: inset(46% 0 46% 0); } 60% { opacity: 1; } to { clip-path: inset(0 0 0 0); } }
+    @keyframes zoom-out  { to { opacity: 0; transform: scale(.98); clip-path: inset(48% 0 48% 0); } }
+    @keyframes slide-in  { from { transform: translateX(100%); } }
+    @keyframes slide-out { to { transform: translateX(100%); } }
+    /* The chat panel leaves with a jolt, a flash, then slides off. */
+    @keyframes panel-out { 15% { transform: translateX(-8px) skewX(-2deg); filter: brightness(1.6); }
+      30% { transform: translateX(-4px); clip-path: inset(0 0 0 0); } to { transform: translateX(100%); filter: brightness(.6); opacity: .4; clip-path: inset(0 0 0 30%); } }
+    .a-panel-out { animation: panel-out .28s cubic-bezier(.6,0,.8,.4) both; }
+    @keyframes toast-in  { from { opacity: 0; transform: translateX(24px); clip-path: inset(0 0 0 100%); } to { clip-path: inset(0 0 0 0); } }
+    @keyframes toast-out { to { opacity: 0; transform: translateX(28px); clip-path: inset(0 0 0 100%); } }
+    @keyframes unfold    { from { opacity: 0; transform: scaleX(.55); } }
+    @keyframes fold      { from { opacity: 0; transform: scaleX(2.2); } }
+    @keyframes expand    { from { opacity: 0; transform: translateY(-6px); } }
+    @keyframes poof      { 40% { opacity: .8; transform: translateX(4px) skewX(-10deg); filter: blur(.5px); }
+                           to { opacity: 0; transform: translateX(10px) skewX(-14deg); filter: blur(2px); clip-path: inset(45% 0 45% 0); } }
+    @keyframes drop-in   { from { opacity: 0; transform: translateY(-6px) scale(.97); clip-path: inset(0 0 100% 0); } to { clip-path: inset(0 0 0 0); } }
+    .a-page-deeper { animation: page-deeper .42s cubic-bezier(.3,.7,.2,1) both; }
+    .a-page-up     { animation: page-up .42s cubic-bezier(.3,.7,.2,1) both; }
+    .a-page-side   { animation: page-side .34s cubic-bezier(.3,.7,.2,1) both; }
+    .a-page-fade   { animation: page-fade .3s ease-out both; }
+    /* Switching a project's view (Board, Tree, Outline…) or a Settings tab: the old view tears away to the
+       right, the new one wipes in from the left behind a vertical scan line, with a short flash. */
+    @keyframes view-out { to { opacity: 0; clip-path: inset(0 0 0 100%); transform: translateX(14px); filter: brightness(1.8); } }
+    @keyframes view-in { from { opacity: 0; clip-path: inset(0 100% 0 0); transform: translateX(-10px); filter: brightness(2); }
+      50% { opacity: 1; filter: brightness(1.25); } to { clip-path: inset(0 0 0 0); } }
+    @keyframes scan-right { from { left: 0; opacity: 1; } 85% { opacity: 1; } to { left: 100%; opacity: 0; } }
+    .a-view-out { animation: view-out .15s cubic-bezier(.6,0,.8,.4) both; }
+    .a-view-in { position: relative; animation: view-in .42s cubic-bezier(.3,.7,.2,1) both; }
+    .a-view-in::before { content: ''; position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -3px; z-index: 30; pointer-events: none;
+      background: linear-gradient(180deg, transparent, rgb(var(--c-lavender-300)), rgb(var(--c-lilac-300)), transparent);
+      box-shadow: 0 0 14px 1px rgb(var(--c-lavender-300) / .7); animation: scan-right .42s cubic-bezier(.3,.7,.2,1) both; }
+    /* Folding a project's header: its extra parts tear away upward (or wipe back in downward with a flash),
+       the panel's height glides, and a scan line rides along the moving edge. */
+    @keyframes head-in { from { opacity: 0; clip-path: inset(0 0 100% 0); transform: translateY(-6px); filter: brightness(2); }
+      50% { opacity: 1; filter: brightness(1.25); } to { clip-path: inset(0 0 0 0); } }
+    @keyframes head-out { 40% { opacity: .8; transform: translateX(3px) skewX(-8deg); filter: brightness(1.8); }
+      to { opacity: 0; clip-path: inset(0 0 100% 0); transform: translateY(-6px) skewX(-12deg); filter: brightness(2); } }
+    .a-head-in { animation: head-in .38s cubic-bezier(.3,.7,.2,1) both; }
+    .a-head-out { animation: head-out .2s cubic-bezier(.6,0,.8,.4) both; }
+    .head-folding { position: relative; overflow: hidden !important; transition: height .32s cubic-bezier(.3,.7,.2,1); }
+    .head-folding::after { content: ''; position: absolute; left: 0; right: 0; height: 2px; margin-top: -3px; z-index: 5; pointer-events: none;
+      background: linear-gradient(90deg, transparent, rgb(var(--c-lavender-300)), rgb(var(--c-lilac-300)), transparent);
+      box-shadow: 0 0 14px 1px rgb(var(--c-lavender-300) / .7); animation: scan-down .4s cubic-bezier(.3,.7,.2,1) both; }
+    .head-folding.fold-up::after { animation-name: scan-up; }
+    /* The tab you switch to lights up like a neon tube. */
+    @keyframes tab-on { 0% { opacity: .2; } 15% { opacity: 1; text-shadow: 0 0 12px currentColor; } 30% { opacity: .4; } 45%, 100% { opacity: 1; } 60% { text-shadow: 0 0 calc(var(--glow) * 10px) currentColor; } }
+    .a-tab-on { animation: tab-on .5s steps(1, end) both; }
+    .a-pop-in      { animation: pop-in .4s cubic-bezier(.2,.8,.2,1) both; }
+    :is(.hud-panel, .proj, .cal-card).a-pop-in { animation: boot .7s cubic-bezier(.3,.7,.2,1) both; }
+    :is(.hud-panel, .proj, .cal-card).a-pop-in > * { animation: content-in .35s .3s ease-out both; }
+    :is(.hud-panel, .proj, .cal-card).a-pop-in .hud-label { animation: neon-on .5s .2s steps(1, end) both; }
+    /* Workflow: a project's archive button shows on hover (always when it's all done). */
+    .proj .proj-archive { opacity: 0; transition: opacity .15s; }
+    .proj:hover .proj-archive, .proj .proj-archive:focus-visible, .proj .proj-archive.is-done { opacity: 1; }
+    @media (hover: none) { .proj .proj-archive { opacity: 1; } }
+    /* Agent's Work: each list scrolls inside its box, and a long result scrolls inside its card. */
+    .aw-scroll { max-height: min(62vh, 40rem); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; padding-right: 2px; }
+    .aw-result { max-height: 18rem; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
+    :is(.card, .bubble, .aw-job, .aw-run, .cal-ev, .cal-chip).a-pop-in { animation: card-in .5s cubic-bezier(.2,.8,.2,1) both; }
+    .a-land        { animation: land .65s cubic-bezier(.2,.9,.3,1.2) both; }
+    .a-tick        { animation: tick .4s ease-out both; }
+    .a-fade-in     { animation: fade-in .2s ease-out both; }
+    .a-fade-out    { animation: fade-out .18s ease-in both; }
+    .a-zoom-in     { animation: zoom-in .3s cubic-bezier(.2,.8,.2,1) both; }
+    .a-zoom-out    { animation: zoom-out .18s ease-in both; }
+    .a-slide-in    { animation: slide-in .3s cubic-bezier(.2,.8,.2,1) both; }
+    .a-slide-out   { animation: slide-out .2s ease-in both; }
+    .a-toast-in    { animation: toast-in .32s cubic-bezier(.2,.8,.2,1) both; }
+    .a-toast-out   { animation: toast-out .25s ease-in both; }
+    .a-unfold      { animation: unfold .32s cubic-bezier(.2,.8,.2,1) both; transform-origin: left center; }
+    .a-fold        { animation: fold .28s cubic-bezier(.2,.8,.2,1) both; transform-origin: left center; }
+    .a-expand      { animation: expand .25s ease-out both; }
+    .a-poof        { animation: poof .24s ease-in both; }
+    .a-drop-in     { animation: drop-in .2s ease-out both; transform-origin: top left; }
+    /* Progress bars glow and fill smoothly; a single light sweep passes over each one when it's drawn. */
+    [data-bar-fill] { position: relative; overflow: hidden; transition: width .7s cubic-bezier(.2,.8,.2,1);
+      box-shadow: 0 0 calc(var(--glow) * 8px) rgb(var(--c-lavender-300) / .6); }
+    [data-bar-fill]::after { content: ''; position: absolute; inset: 0; transform: translateX(-100%);
+      background: linear-gradient(90deg, transparent, rgb(255 255 255 / .6), transparent); }
+    [data-bar-fill].a-sheen::after { animation: sheen .9s .1s ease-out both; }
+    @keyframes sheen { to { transform: translateX(100%); } }
+    button:not(:disabled) { transition-property: color, background-color, border-color, opacity, box-shadow, transform; transition-duration: .15s; }
+    button:not(:disabled):active { transform: scale(.96); }
+    .theme-switching, .theme-switching * { transition: background-color .4s, border-color .4s, color .4s !important; }
+    /* ---- Chat panel layout: it sits beside an open edit/add panel instead of under it. */
+    #chat:not(.hidden) { display: flex; }
+    #chat { transition: right .3s cubic-bezier(.2,.8,.2,1); }
+    @media (min-width: 900px) {
+      body.drawer-open #chat { right: 28rem; }
+      body.chat-open [data-backdrop]:not([data-drawer]) { padding-right: 29rem; }   /* centered popups avoid the chat */
+      body.chat-open #toasts { right: 29rem; }
+    }
+    @media (max-width: 899px) { body.drawer-open #chat { z-index: 30; } }          /* no room for both: the panel wins */
+    @media (min-width: 1100px) {
+      body.chat-open #app, body.chat-open header > div { margin-right: 29rem; max-width: none; }
+    }
+    .chat-md p + p, .chat-md p + ul, .chat-md ul + p, .chat-md p + ol, .chat-md ol + p { margin-top: .5rem; }
+    .chat-md ul { list-style: disc; padding-left: 1.25rem; }
+    .chat-md ol { list-style: decimal; padding-left: 1.25rem; }
+    .chat-md code { font-family: "Share Tech Mono", ui-monospace, monospace; background: rgb(var(--c-lavender-100)); color: rgb(var(--c-lavender-800)); border-radius: 2px; padding: 0 .25rem; font-size: .82em; }
+    .chat-md pre { font-family: "Share Tech Mono", ui-monospace, monospace; background: rgb(var(--c-slate-100)); border: 1px solid rgb(var(--c-slate-200)); border-left: 2px solid rgb(var(--c-lavender-300)); border-radius: 3px; padding: .5rem .75rem; overflow-x: auto; font-size: .78rem; margin-top: .5rem; }
+    .chat-md pre code { background: none; padding: 0; color: inherit; }
+    .chat-md h1, .chat-md h2, .chat-md h3 { font-weight: 700; margin-top: .5rem; text-shadow: none; }
+    .chat-md a { text-decoration: underline; color: rgb(var(--c-lavender-700)); }
+    .chat-md blockquote { border-left: 3px solid rgb(var(--c-butter-300)); padding-left: .6rem; color: rgb(var(--c-slate-600)); margin-top: .4rem; }
+    .typing-dots span { animation: blink 1.2s infinite both; }
+    .typing-dots span:nth-child(2) { animation-delay: .2s; } .typing-dots span:nth-child(3) { animation-delay: .4s; }
+    @keyframes blink { 0%, 80%, 100% { opacity: .2; } 40% { opacity: 1; } }
+
+    /* ---- The awakening page: its own full-screen space, neon light drifting slowly behind it. */
+    body.awakening > header, body.awakening #chat { display: none !important; }
+    body.awakening #app { margin: 0 !important; max-width: none !important; padding: 0; }
+    .aw-page { background: linear-gradient(160deg, var(--page-from), var(--page-via) 45%, var(--page-to)); }
+    .aw-glow span { position: fixed; border-radius: 9999px; filter: blur(80px); opacity: .32; animation: drift 18s ease-in-out infinite alternate; }
+    .aw-glow span:nth-child(1) { width: 26rem; height: 26rem; left: -6rem; top: -6rem; background: rgb(var(--c-lilac-300)); }
+    .aw-glow span:nth-child(2) { width: 30rem; height: 30rem; right: -8rem; top: 20%; background: rgb(var(--c-lavender-300)); animation-duration: 22s; }
+    .aw-glow span:nth-child(3) { width: 24rem; height: 24rem; left: 30%; bottom: -10rem; background: rgb(var(--c-baby-300)); animation-duration: 26s; }
+    @keyframes drift { to { transform: translate(4rem, 3rem) scale(1.15); } }
+    .aw-orb { animation: breathe 3.2s ease-in-out infinite; }
+    @keyframes breathe { 50% { transform: scale(1.08); box-shadow: 0 0 90px rgb(var(--c-lilac-300) / .8); } }
+    .aw-waking .aw-card { animation: wake-card 1.3s ease-in forwards; }
+    .aw-waking .aw-glow span { animation: wake-glow 1.3s ease-in forwards; }
+    @keyframes wake-card { 30% { transform: scale(1.03); } to { transform: scale(.9); opacity: 0; filter: blur(6px); } }
+    @keyframes wake-glow { to { opacity: .9; transform: scale(3); } }
+
+    /* ---- The HUD (#/): framed panels with neon corner brackets, mono labels and tabular numbers. */
+    .hud-panel { position: relative; min-width: 0; border-radius: 4px; padding: 1rem 1.1rem;
+      background: linear-gradient(180deg, rgb(var(--c-white) / .9), rgb(var(--c-white) / .74));
+      border: 1px solid rgb(var(--c-lavender-200) / .6);
+      box-shadow: inset 0 1px 0 rgb(var(--c-lavender-300) / .1), 0 12px 32px -20px rgb(0 0 0 / .8);
+      backdrop-filter: blur(8px); transition: border-color .25s, box-shadow .25s; }
+    .hud-panel:hover { border-color: rgb(var(--c-lavender-300) / .55);
+      box-shadow: inset 0 1px 0 rgb(var(--c-lavender-300) / .14), 0 0 calc(var(--glow) * 24px) -10px rgb(var(--c-lavender-300) / .7); }
+    .hud-panel::before, .hud-panel::after { content: ''; position: absolute; width: 12px; height: 12px; pointer-events: none; border-style: solid; transition: width .3s cubic-bezier(.2,.8,.2,1), height .3s cubic-bezier(.2,.8,.2,1); }
+    .hud-panel:hover::before, .hud-panel:hover::after { width: 28px; height: 28px; }
+    .hud-panel::before { top: -1px; left: -1px; border-width: 2px 0 0 2px; border-color: rgb(var(--c-lavender-300));
+      filter: drop-shadow(0 0 calc(var(--glow) * 4px) rgb(var(--c-lavender-300))); }
+    .hud-panel::after { bottom: -1px; right: -1px; border-width: 0 2px 2px 0; border-color: rgb(var(--c-lilac-300));
+      filter: drop-shadow(0 0 calc(var(--glow) * 4px) rgb(var(--c-lilac-300))); }
+    .hud-label { display: flex; align-items: center; gap: .45rem; font: 400 11px/1 "Share Tech Mono", ui-monospace, monospace; letter-spacing: .18em; text-transform: uppercase; color: rgb(var(--c-lavender-700) / .9); }
+    .hud-label .hud-count { color: rgb(var(--c-slate-500)); }
+    /* A status light next to a label only where it reports something real (agent state, timer, overdue). */
+    .hud-led { width: 7px; height: 7px; flex: none; background: currentColor; box-shadow: 0 0 calc(var(--glow) * 8px + 1px) currentColor; }
+    .hud-led.live { animation: blink 1.6s infinite; }
+    .hud-num { font-family: "Share Tech Mono", ui-monospace, monospace; font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+    .hud-dot { width: .5rem; height: .5rem; border-radius: 9999px; box-shadow: 0 0 calc(var(--glow) * 8px + 1px) currentColor; }
+    .hud-dot.live { animation: blink 2.4s infinite; }
+    .hud-ring { transition: stroke-dashoffset .9s cubic-bezier(.2,.8,.2,1); }
+    .hud-glow { filter: drop-shadow(0 0 calc(var(--glow) * 6px) rgb(var(--c-lavender-300) / .7)); }
+    .hud-kbd { font: 400 11px/1 "Share Tech Mono", ui-monospace, monospace; border: 1px solid rgb(var(--c-slate-300)); border-bottom-width: 2px; border-radius: 2px; padding: 1px 4px; color: rgb(var(--c-slate-600)); }
+    [data-hud-time] { text-shadow: 0 0 calc(var(--glow) * 22px) rgb(var(--c-lavender-300) / .45); }
+
+    /* ---- One screen: on large screens the HUD and the projects page fill the window exactly and never
+       scroll; panels that can hold more than fits scroll inside themselves (.hud-scroll). */
+    .hud-col { display: flex; flex-direction: column; gap: .75rem; min-width: 0; }
+    @media (min-width: 1024px) {
+      body.one-screen { height: 100vh; overflow: hidden; }
+      body.one-screen #app { height: calc(100vh - 3.5rem - 1px); padding-top: .75rem; padding-bottom: .75rem; display: flex; flex-direction: column; overflow: hidden; }
+      body.one-screen .one-screen-fill { flex: 1 1 auto; min-height: 0; }
+      .hud-col { min-height: 0; }
+      .hud-grow { flex: 1 1 0; min-height: 5.5rem; }
+      .hud-grow-more { flex-grow: 2.6; }   /* Today gets most of the left column; Projects the rest */
+      .hud-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; }
+      body.one-screen #view [data-colhead] { top: 0 !important; }   /* the board scrolls inside #view, not the page */
+      body.one-screen .aw-scroll { max-height: none; }   /* Agent's Work: the box's height comes from the window */
+      .aw-cols > .hud-panel, .aw-cols > .hud-col { min-height: 0; }
+      .proj-grid { grid-template-columns: repeat(var(--cols), minmax(0, 1fr)) !important; grid-template-rows: repeat(var(--rows), minmax(0, 1fr)); }   /* beats sm:grid-cols-2 */
+    }
+
+    /* ---- The Calendar (Workflow → Calendar): an hour grid with half-hour lines, items you drag and stretch,
+       a glowing "now" line, a ghost that follows the pointer and a dashed preview where it would land. */
+    .cal-col { background-image: linear-gradient(to bottom, rgb(var(--c-lavender-200) / .6) 1px, transparent 1px),
+      linear-gradient(to bottom, rgb(var(--c-lavender-100) / .55) 1px, transparent 1px);
+      background-size: 100% var(--cal-h), 100% calc(var(--cal-h) / 2); cursor: copy; }
+    .cal-col.is-today, .cal-cell.is-today { background-color: rgb(var(--c-lavender-50) / .55); }
+    .cal-hour { position: absolute; right: .45rem; transform: translateY(-50%); font-size: 10px; color: rgb(var(--c-slate-400)); }
+    .cal-today-dot { box-shadow: 0 0 calc(var(--glow) * 12px) rgb(var(--c-lavender-300) / .8); }
+    .cal-now { position: absolute; left: 0; right: 0; height: 2px; z-index: 6; pointer-events: none; background: rgb(var(--c-blush-300));
+      box-shadow: 0 0 calc(var(--glow) * 8px + 1px) rgb(var(--c-blush-300)); }
+    .cal-now::before { content: ''; position: absolute; left: -4px; top: -3px; width: 8px; height: 8px; border-radius: 9999px; background: rgb(var(--c-blush-300));
+      box-shadow: 0 0 calc(var(--glow) * 10px + 1px) rgb(var(--c-blush-300)); animation: blink 2.4s infinite; }
+    .cal-ev { position: absolute; z-index: 2; overflow: hidden; border-radius: 4px; border-left-width: 3px; padding: 2px 6px;
+      font-size: 12px; line-height: 1.25; cursor: grab; user-select: none; -webkit-user-select: none; touch-action: manipulation;
+      transition: box-shadow .15s, filter .15s, opacity .15s; }
+    .cal-ev.is-mark { min-height: 20px; }
+    /* Things at the same time drawn as one line (calStackHTML): the main title and +N. */
+    .cal-stack { min-height: 20px; }
+    .cal-stack-n { flex: none; margin-left: auto; padding: 0 5px; border-radius: 9999px; font-size: 10px; font-weight: 800; }
+    .cal-stack-n { color: inherit; background: color-mix(in srgb, currentColor 16%, transparent); }
+    .cal-stack-row { display: flex; align-items: center; gap: .3rem; font-size: 10.5px; line-height: 15px; white-space: nowrap; overflow: hidden; }
+    .cal-stack-row .ico { flex: none; width: 10px; height: 10px; }
+    .cal-ev.is-fixed, .cal-chip.is-fixed { cursor: pointer; }
+    .cal-ev:hover, .cal-chip:hover { z-index: 4; filter: brightness(1.04); box-shadow: 0 0 calc(var(--glow) * 14px) -3px currentColor, 0 0 0 1px currentColor; }
+    .cal-ev-title { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: .25rem; }
+    .cal-ev-title .ico, .cal-chip .ico { flex: none; width: 11px; height: 11px; }
+    .cal-ev-sub { font-size: 10.5px; opacity: .8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .cal-ev-time { font: 400 10px/1 "Share Tech Mono", ui-monospace, monospace; opacity: .8; flex: none; }
+    .cal-agent { color: rgb(var(--c-lilac-700)); text-shadow: 0 0 calc(var(--glow) * 6px) rgb(var(--c-lilac-300)); flex: none; }
+    .cal-resize { position: absolute; left: 0; right: 0; bottom: 0; height: 8px; cursor: ns-resize; }
+    .cal-resize::after { content: ''; position: absolute; left: 50%; bottom: 2px; width: 18px; margin-left: -9px; height: 2px; border-radius: 1px;
+      background: currentColor; opacity: 0; transition: opacity .15s; }
+    .cal-ev:hover .cal-resize::after, .cal-ev.is-resizing .cal-resize::after { opacity: .55; }
+    .cal-ev.is-resizing { z-index: 5; box-shadow: 0 0 0 1px currentColor, 0 0 calc(var(--glow) * 18px) -2px currentColor; }
+    .cal-ev.dragging, .cal-chip.dragging, .cal-cand.dragging { opacity: .35; }
+    .cal-chip { display: flex; align-items: center; gap: .3rem; min-width: 0; border-radius: 3px; border-left-width: 2px; padding: 1px 5px;
+      font-size: 11px; font-weight: 600; line-height: 1.35; cursor: grab; user-select: none; -webkit-user-select: none; touch-action: manipulation; transition: box-shadow .15s, filter .15s; }
+    .cal-cand { touch-action: manipulation; user-select: none; -webkit-user-select: none; }
+    .cal-ghost { position: fixed !important; z-index: 70; pointer-events: none; margin: 0; opacity: .95; transition: none; list-style: none;
+      box-shadow: 0 0 0 1px rgb(var(--c-lavender-300)), 0 14px 34px -10px rgb(var(--c-lavender-300) / .8), 0 0 calc(var(--glow) * 24px) -4px rgb(var(--c-lilac-300)); }
+    .cal-preview { position: absolute; left: 2px; right: 2px; z-index: 5; pointer-events: none; border: 1.5px dashed rgb(var(--c-lavender-300));
+      border-radius: 4px; background: rgb(var(--c-lavender-100) / .55); padding: 1px 5px; font: 400 11px/1.4 "Share Tech Mono", ui-monospace, monospace;
+      color: rgb(var(--c-lavender-800)); box-shadow: 0 0 calc(var(--glow) * 14px) -4px rgb(var(--c-lavender-300)); }
+    .cal-drop-on { box-shadow: inset 0 0 0 2px rgb(var(--c-lavender-300)), inset 0 0 calc(var(--glow) * 18px) -6px rgb(var(--c-lavender-300)); background-color: rgb(var(--c-lavender-50)) !important; }
+    body.cal-dragging, body.cal-dragging * { cursor: grabbing !important; }
+    /* Focus sessions from the timer: a soft striped block, what actually happened next to what was planned. */
+    .cal-focus { background-image: repeating-linear-gradient(135deg, rgb(var(--c-lilac-300) / .14) 0 6px, transparent 6px 12px); cursor: pointer; }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, ::before, ::after { animation-duration: .01ms !important; animation-delay: 0ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+      .dot-live, .hud-dot.live, .hud-led.live, .colon, .typing-dots span { animation: none !important; }   /* would otherwise stop dimmed */
+    }
+  </style>
+</head>
+<body class="text-slate-700 font-sans antialiased min-h-screen">
+  <header class="app-head bg-white/75 backdrop-blur border-b border-lavender-100 sticky top-0 z-20">
+    <div class="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between gap-2">
+      <a href="#/" class="flex items-center gap-2 sm:gap-2.5 font-display font-bold text-[13px] sm:text-lg tracking-normal sm:tracking-wider uppercase text-slate-900">
+        <svg class="logo-mark w-6 h-6 sm:w-7 sm:h-7 shrink-0 overflow-visible" viewBox="0 0 32 32" aria-hidden="true">
+          <path d="M2 2h22l6 6v22H8l-6-6z" fill="rgb(var(--c-lavender-50))" stroke="rgb(var(--c-lavender-300))" stroke-width="1.5"/>
+          <path class="logo-trace" d="M2 2h22l6 6v22H8l-6-6z" pathLength="100" fill="none" stroke="rgb(var(--c-lilac-300))" stroke-width="2"/>
+          <path class="logo-core" d="M9 9h11l3 3v11H12l-3-3z" fill="none" stroke="rgb(var(--c-lavender-700))" stroke-width="1.5"/>
+          <rect class="logo-dot" x="14" y="14" width="4" height="4"/>
+        </svg>
+        <span class="logo-text" data-text="Nestwork">Nestwork</span>
+      </a>
+      <nav class="shrink-0 flex items-center rounded-full border border-lavender-200 bg-white/60 p-0.5 text-xs xl:text-sm font-semibold font-display uppercase tracking-wide" aria-label="Switch view" title="Switch view (V)">
+        <a href="#/" data-view-switch="hud" class="flex items-center gap-1.5 rounded-full px-2.5 sm:px-3 py-0.5 text-slate-600"><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="2" width="5" height="5"/><rect x="9" y="2" width="5" height="5"/><rect x="2" y="9" width="5" height="5"/><rect x="9" y="9" width="5" height="5"/></svg><span class="hidden md:inline">HUD</span></a>
+        <a href="#/focus" data-view-switch="focus" class="flex items-center gap-1.5 rounded-full px-2.5 sm:px-3 py-0.5 text-slate-600"><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 13.5h12M2.5 10.5l3.5-3.5 3 2.5 4.5-6"/></svg><span class="hidden md:inline">Focus</span></a>
+        <a href="#/projects" data-view-switch="projects" class="flex items-center gap-1.5 rounded-full px-2.5 sm:px-3 py-0.5 text-slate-600"><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><rect x="1.75" y="1.75" width="12.5" height="12.5"/><rect x="5.25" y="5.25" width="5.5" height="5.5"/></svg><span class="hidden md:inline">Workflow</span></a>
+        <a href="#/work" data-view-switch="work" class="relative flex items-center gap-1.5 rounded-full px-2.5 sm:px-3 py-0.5 text-slate-600" title="Agent’s Work: what your agent does on a schedule"><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8.5" r="5.75"/><path d="M8 5.5v3l2 1.5M6 1.25h4"/></svg><span class="hidden md:inline whitespace-nowrap">Agent’s Work</span><span id="work-led" class="hidden absolute top-0 right-0.5 w-1.5 h-1.5 rounded-full bg-baby-500 dot-live" title="A task is running"></span></a>
+      </nav>
+      <div class="flex items-center gap-1.5 sm:gap-3">
+        <button id="chat-btn" class="relative flex items-center gap-1.5 rounded-full border border-lavender-200 bg-white/60 px-2.5 sm:px-3 py-1 text-sm text-slate-600 hover:bg-lavender-50" title="Show or hide the chat with your agent" aria-controls="chat"><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 2.75h12v8.5H7.5L4.5 14v-2.75H2z"/></svg><span class="sr-only lg:not-sr-only">Chat</span><span id="chat-badge" class="hidden absolute -top-1.5 -right-1.5 min-w-[1.25rem] h-5 px-1 rounded-full bg-butter-300 text-[11px] font-bold leading-5 text-center text-slate-900"></span></button>
+        <button id="settings-btn" class="relative flex items-center gap-1.5 rounded-full border border-lavender-200 bg-white/60 px-2.5 sm:px-3 py-1 text-sm text-slate-600 hover:bg-lavender-50" title="Settings and AI agent access">
+          <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 4.5h7M12.5 4.5H14M2 11.5h1.5M7 11.5h7"/><rect x="9" y="3" width="3" height="3"/><rect x="3.5" y="10" width="3" height="3"/></svg><span class="sr-only lg:not-sr-only">Settings</span><span id="pending-badge" class="hidden absolute -top-1.5 -right-1.5 min-w-[1.25rem] h-5 px-1 rounded-full bg-blush-300 text-[11px] font-bold leading-5 text-center text-white"></span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main id="app" class="max-w-7xl mx-auto px-4 py-6"></main>
+
+  <div id="modal-root"></div>
+  <!-- Chat with the agent: a side panel like the edit panel. It slides left of an open edit/add panel
+       instead of being covered, and can be hidden with the Chat button. -->
+  <aside id="chat" class="hidden fixed top-0 right-0 h-full w-full sm:w-[28rem] z-[45] flex-col bg-white border-l border-lavender-100 shadow-xl" aria-label="Chat with your agent">
+    <div class="flex items-center gap-3 px-4 h-14 shrink-0 border-b border-lavender-100">
+      <button type="button" data-agent-avatar class="relative w-8 h-8 shrink-0 rounded-full overflow-hidden ring-2 ring-lilac-200 hover:ring-lavender-300 transition" title="Profile picture" aria-label="Show the profile picture">
+        <img src="/api/agent/avatar" alt="" class="w-full h-full object-cover" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'w-full h-full bg-gradient-to-br from-lilac-300 via-baby-300 to-lavender-300 text-white flex items-center justify-center text-sm',textContent:'✦'}))">
+      </button>
+      <div class="min-w-0 flex-1">
+        <button type="button" id="chat-name" data-agent-gallery class="block max-w-full font-bold text-slate-800 truncate hover:text-lavender-700 hover:underline decoration-dotted underline-offset-4" title="Open the gallery">Agent</button>
+        <p id="chat-status" class="text-xs text-slate-400 truncate">Ready</p>
+      </div>
+      <button id="chat-new" class="rounded-full border border-lavender-200 px-3 py-1 text-xs text-slate-600 hover:bg-lavender-50" title="Start a fresh conversation">New chat</button>
+      <button id="chat-close" class="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100" aria-label="Hide chat">✕</button>
+    </div>
+    <div class="relative flex-1 min-h-0 flex flex-col">
+      <div id="chat-log" class="flex-1 overflow-y-auto scroll-thin px-4 py-4 space-y-3 [overflow-anchor:none]" aria-live="polite"></div>
+      <button id="chat-latest" type="button" class="hidden absolute bottom-3 right-4 w-9 h-9 rounded-full border border-lavender-200 bg-white/90 text-slate-600 shadow-md hover:bg-lavender-50 hover:text-lavender-700 flex items-center justify-center" title="Jump to the latest message" aria-label="Jump to the latest message">
+        <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 6 8 10.5 12.5 6"/></svg>
+        <span data-dot class="hidden absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-butter-300 ring-2 ring-white"></span>
+      </button>
+    </div>
+    <form id="chat-form" class="shrink-0 border-t border-lavender-100 p-3">
+      <div id="chat-tray" class="hidden mb-2 flex flex-wrap gap-1.5"></div>
+      <div class="flex items-end gap-2 rounded-2xl border border-lavender-200 bg-white px-3 py-2 focus-within:ring-2 focus-within:ring-lavender-300">
+        <label class="shrink-0 w-8 h-8 -ml-1 flex items-center justify-center rounded-full text-slate-400 hover:text-lavender-700 hover:bg-lavender-50 cursor-pointer" title="Attach files (images, PDFs, documents…)"><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M10.5 4.5 5.2 9.8a1.6 1.6 0 0 0 2.3 2.3l5.6-5.6a3 3 0 0 0-4.3-4.3L3.2 7.8a4.4 4.4 0 0 0 6.2 6.2l4.1-4.1"/></svg><span class="sr-only">Attach files</span><input id="chat-file" type="file" multiple class="hidden"></label>
+        <textarea id="chat-input" rows="1" placeholder="Ask anything… e.g. What should I do today?" class="flex-1 resize-none bg-transparent text-sm leading-6 focus:outline-none max-h-40"></textarea>
+        <button id="chat-send" type="submit" class="shrink-0 w-8 h-8 rounded-full bg-lavender-700 text-white font-bold hover:bg-lavender-800" aria-label="Send">↑</button>
+      </div>
+      <p class="mt-1.5 text-[11px] text-slate-400">Enter to send · Shift+Enter for a new line · paste or drop files to attach</p>
+    </form>
+  </aside>
+
+  <div id="toasts" class="fixed bottom-4 right-4 left-4 sm:left-auto z-50 flex flex-col gap-2 items-end pointer-events-none"></div>
+
+  <script src="/static/app.js"></script>
+  <script src="/static/board.js"></script>
+  <script src="/static/editor.js"></script>
+  <script src="/static/settings.js"></script>
+  <script src="/static/awaken.js"></script>
+  <script src="/static/chat.js"></script>
+  <script src="/static/hud.js"></script>
+  <script src="/static/focusview.js"></script>
+  <script src="/static/review.js"></script>
+  <script src="/static/calendar.js"></script>
+  <script src="/static/agentwork.js"></script>
+  <script src="/static/sounds.js"></script>
+  <script src="/static/notesview.js"></script>
+  <script src="/static/attachments.js"></script>
+  <script src="/static/gallery.js"></script>
+  <script src="/static/spotlight.js"></script>
+  <script src="/static/contextmenu.js"></script>
+  <script src="/static/mobile.js"></script>
+</body>
+</html>

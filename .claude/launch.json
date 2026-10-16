@@ -1,0 +1,16 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "nestwork",
+      "runtimeExecutable": ".venv/bin/uvicorn",
+      "runtimeArgs": [
+        "nestwork.main:app",
+        "--port",
+        "8834",
+        "--reload"
+      ],
+      "port": 8834
+    }
+  ]
+}

@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b0d1b">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Nestwork">
+  <link rel="apple-touch-icon" href="/static/icons/icon-180.png">
+  <link rel="manifest" href="/manifest.webmanifest" id="manifest">
+  <title>Connect to Nestwork</title>
+  <style>
+    /* Self-contained: shown before this device is connected, so it loads nothing that needs a key. */
+    :root { color-scheme: dark; --bg: #0b0d1b; --panel: #111426; --line: #23284a; --text: #e2e7f6; --muted: #929ac0; --cyan: #14b6d4; --magenta: #d636b8; --red: #ec3668; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; background: radial-gradient(circle at 30% 0%, #10203a 0, var(--bg) 60%); color: var(--text);
+      font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; display: flex; align-items: center; justify-content: center;
+      padding: max(24px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom)); }
+    main { width: 100%; max-width: 420px; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 28px 22px;
+      box-shadow: 0 0 0 1px rgba(20,182,212,.15), 0 24px 60px -18px rgba(0,0,0,.8); }
+    h1 { margin: 0 0 4px; font-size: 22px; letter-spacing: .04em; }
+    h1 span { color: var(--cyan); }
+    p { margin: 8px 0; color: var(--muted); }
+    .big { color: var(--text); }
+    label { display: block; margin-top: 18px; font-size: 13px; font-weight: 600; color: var(--muted); }
+    input { width: 100%; margin-top: 6px; padding: 12px 14px; font: 600 20px/1 ui-monospace, Menlo, monospace; letter-spacing: .12em; text-transform: uppercase;
+      color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 4px; }
+    input:focus { outline: 2px solid var(--cyan); outline-offset: 1px; }
+    button, .btn { display: block; width: 100%; margin-top: 14px; padding: 13px; font: 700 15px/1 inherit; letter-spacing: .06em; text-transform: uppercase; text-align: center;
+      color: var(--bg); background: var(--cyan); border: 0; border-radius: 4px; text-decoration: none; cursor: pointer; }
+    button:disabled { opacity: .5; }
+    .err { color: var(--red); min-height: 1.5em; font-size: 14px; }
+    ol { padding-left: 1.2em; color: var(--text); }
+    ol li { margin: 8px 0; }
+    .share { display: inline-block; padding: 0 6px; border: 1px solid var(--line); border-radius: 4px; font-size: 13px; }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>NEST<span>WORK</span></h1>
+    <section id="ask">
+      <p class="big">Connect this device to Nestwork on your Mac.</p>
+      <p>On your Mac, open Nestwork → Settings → 📱 Phone → <b>Pair a phone</b>, then scan the code with your camera, or type the code shown under it here.</p>
+      <form id="form">
+        <label for="code">Pairing code</label>
+        <input id="code" autocomplete="one-time-code" autocapitalize="characters" spellcheck="false" placeholder="ABCDE-FGHJK" maxlength="11" required>
+        <button id="go">Connect</button>
+      </form>
+      <p class="err" id="err"></p>
+    </section>
+    <section id="done" class="hidden">
+      <p class="big">✓ Connected as <b id="name">this phone</b>.</p>
+      <p>To use it like an app:</p>
+      <ol>
+        <li>Tap <span class="share">Share ⬆︎</span> at the bottom of Safari.</li>
+        <li>Choose <b>Add to Home Screen</b>, then <b>Add</b>.</li>
+        <li>Open Nestwork from your Home Screen. It connects itself the first time (within an hour).</li>
+      </ol>
+      <a class="btn" href="/">Open Nestwork here</a>
+    </section>
+  </main>
+  <script>
+    const $ = id => document.getElementById(id);
+    const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+    async function connect(code) {
+      $('err').textContent = '';
+      $('go').disabled = true;
+      try {
+        const r = await fetch('/api/pair', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code }) });
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(data.detail || 'That didn’t work. Make a new code on your Mac.');
+        history.replaceState(null, '', '/pair');                       // the code is used up: don't leave it in the address
+        if (standalone) { location.href = '/'; return; }               // already the Home Screen app
+        // The Home Screen app gets its own key with this one-time code (it's in the app's start address).
+        $('manifest').href = `/manifest.webmanifest?install=${encodeURIComponent(data.install_code)}`;
+        $('name').textContent = data.name || 'this phone';
+        $('ask').classList.add('hidden');
+        $('done').classList.remove('hidden');
+      } catch (e) {
+        $('err').textContent = e.message;
+      } finally {
+        $('go').disabled = false;
+      }
+    }
+    $('form').onsubmit = e => { e.preventDefault(); connect($('code').value.trim()); };
+    $('code').oninput = e => {
+      const v = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10);
+      e.target.value = v.length > 5 ? `${v.slice(0, 5)}-${v.slice(5)}` : v;
+    };
+    const fromLink = decodeURIComponent(location.hash.slice(1));
+    if (/^[A-Z0-9]{5}-?[A-Z0-9]{5}$/i.test(fromLink)) connect(fromLink);
+  </script>
+</body>
+</html>
