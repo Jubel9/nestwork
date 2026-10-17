@@ -476,6 +476,14 @@
     .tree-plus { opacity: 0; }
     .tree-node:hover .tree-plus, .tree-plus:focus-visible { opacity: 1; }
     @media (hover: none) { .tree-plus { opacity: 1; } }
+    .full-view { transition: right .25s ease; }
+    @media (min-width: 640px) { body.chat-open .full-view { right: 28rem; } }   /* the chat panel stays usable beside it */
+    .fv-scroll { cursor: grab; }
+    .fv-scroll.fv-panning { cursor: grabbing; user-select: none; }
+    .fv-scroll::-webkit-scrollbar { width: 12px; height: 12px; }
+    .fv-scroll::-webkit-scrollbar-track { background: rgb(var(--c-lavender-200) / .25); }
+    .fv-scroll::-webkit-scrollbar-thumb { background: rgb(var(--c-lavender-300) / .8); border-radius: 6px; border: 2px solid transparent; background-clip: padding-box; }
+    .fv-scroll::-webkit-scrollbar-corner { background: transparent; }
 
     /* ---- Idle motion: small, slow loops that keep the interface alive without pulling focus.
        Text never changes: glitch layers repeat the element's own text (data-text). */

@@ -347,6 +347,7 @@ function renderBoard(view, data, opts = {}) {
           <span class="w-2 h-2 rounded-full ${st.dot}"></span>${esc(s.label)}<span class="opacity-70">${count[s.key]}</span></button>`;
       }).join('')}
     </div>` : ''}
+    ${opts.popup || mobile ? '' : `<div class="flex justify-end mb-1.5 text-xs"><button data-bfull class="font-semibold text-lavender-700 hover:text-lavender-800" title="Open the whole board in a full view with zoom">⤢ Full view</button></div>`}
     <div class="nb relative grid rounded-3xl border border-lavender-100 bg-white/70 shadow-sm" style="grid-template-columns:${widths(cols, isOpen)}">
       <svg class="nb-outlines absolute inset-0 w-full h-full pointer-events-none z-0" aria-hidden="true"></svg>
       ${header}
@@ -406,6 +407,9 @@ function renderBoard(view, data, opts = {}) {
   setupDrag(view, data);
   bindTrack(view);
   if (opts.popup) return;
+  const redraw = () => renderBoard(view, data);
+  view.querySelector('[data-bfull]')?.addEventListener('click', () => openFullView('board', data, redraw));
+  fullView?.follow('board', data, redraw);
   animateCards(view, leaves, motion.entering);
   animateBars(view, motion.entering);
 }
@@ -842,7 +846,8 @@ function newTodoModal({ parentId = null, parentTitle = '', status = null } = {})
 // ---------------------------------------------------------------- tree view
 // The whole nest as a tree drawn left to right: this block, then what's inside it, branch by branch.
 // Click a name to open it, ▸ to fold a branch, + to add a to-do inside, "+ Add to-do" ends every level.
-function renderTree(view, data) {
+// ⤢ Full view opens the same tree over the page (see openFullView).
+function treeMarkup(data) {
   const ghost = (id, title) => `<li class="tree-ghost"><button data-tadd="${id}" class="rounded-md border border-dashed border-lavender-200 px-2.5 py-1 text-xs font-semibold text-lavender-700 hover:border-lavender-300 hover:bg-lavender-50" title="Add a to-do to “${esc(title)}”">+ Add to-do</button></li>`;
   const branch = (n, isRoot = false) => {
     const kids = n.children, open = isRoot || !state.collapsed.has(n.id), st = STAGE_STYLE[n.status];
@@ -862,36 +867,184 @@ function renderTree(view, data) {
     return `<div class="tree-branch">${card}${kids.length || isRoot ? inner : ''}</div>`;
   };
   const root = { ...data.tree, title: data.block.title, status: data.block.status, done: data.block.done, progress: data.block.progress, due_date: null };
-  view.innerHTML = `
-    <div class="rounded-3xl bg-white/70 border border-lavender-100 shadow-sm">
-      <div class="flex flex-wrap items-center justify-between gap-2 px-3 pt-2 text-xs">
-        <span class="text-slate-400">Click a name to open it · ▸ folds a branch · + adds a to-do inside</span>
-        <span class="flex gap-3"><button data-all="open" class="text-slate-500 hover:text-lavender-700">Expand all</button><button data-all="close" class="text-slate-500 hover:text-lavender-700">Collapse all</button></span>
-      </div>
-      <div class="tree overflow-x-auto scroll-thin p-4">${branch(root, true)}</div>
-    </div>`;
-  const save = () => localSet('nestwork.collapsed', JSON.stringify([...state.collapsed]));
-  view.querySelectorAll('[data-ttoggle]').forEach(b => b.onclick = () => {
+  return branch(root, true);
+}
+
+const saveCollapsed = () => localSet('nestwork.collapsed', JSON.stringify([...state.collapsed]));
+
+function setAllFolded(data, open) {
+  const walk = n => { n.children.forEach(walk); if (n.children.length) open ? state.collapsed.delete(n.id) : state.collapsed.add(n.id); };
+  data.tree.children.forEach(walk);
+  saveCollapsed();
+}
+
+// Folding, + and opening a name, for the tree in `el` (the page's or the full view's). `redraw` redraws both.
+function wireTree(el, data, redraw) {
+  el.querySelectorAll('[data-ttoggle]').forEach(b => b.onclick = () => {
     const id = Number(b.dataset.ttoggle), opening = state.collapsed.has(id);
     opening ? state.collapsed.delete(id) : state.collapsed.add(id);
-    save(); renderTree(view, data);
-    if (opening) stagger(view.querySelectorAll(`[data-tkids="${id}"] > li > .tree-branch > .tree-node, [data-tkids="${id}"] > .tree-ghost`), 'pop-in', 30);
+    saveCollapsed(); redraw();
+    if (opening) stagger(el.querySelectorAll(`[data-tkids="${id}"] > li > .tree-branch > .tree-node, [data-tkids="${id}"] > .tree-ghost`), 'pop-in', 30);
   });
-  view.querySelectorAll('[data-all]').forEach(b => b.onclick = () => {
-    const walk = n => { n.children.forEach(walk); if (n.children.length) b.dataset.all === 'open' ? state.collapsed.delete(n.id) : state.collapsed.add(n.id); };
-    data.tree.children.forEach(walk); save(); renderTree(view, data);
-    animate(view.firstElementChild, 'page-fade');
-  });
-  view.querySelectorAll('[data-tadd]').forEach(b => b.onclick = () => {
+  el.querySelectorAll('[data-tadd]').forEach(b => b.onclick = () => {
     const id = Number(b.dataset.tadd);
     newTodoModal({ parentId: id, parentTitle: id === data.block.id ? data.block.title : findNode(data.tree, id)?.title });
   });
-  view.querySelectorAll('[data-popup]').forEach(a => a.onclick = e => {
+  el.querySelectorAll('[data-popup]').forEach(a => a.onclick = e => {
     if (e.metaKey || e.ctrlKey) return;
     e.preventDefault();
     openBlockPopup(Number(a.dataset.popup));
   });
+}
+
+function renderTree(view, data) {
+  view.innerHTML = `
+    <div class="rounded-3xl bg-white/70 border border-lavender-100 shadow-sm">
+      <div class="flex flex-wrap items-center justify-between gap-2 px-3 pt-2 text-xs">
+        <span class="text-slate-400">Click a name to open it · ▸ folds a branch · + adds a to-do inside</span>
+        <span class="flex gap-3"><button data-tfull class="font-semibold text-lavender-700 hover:text-lavender-800" title="Open the whole tree in a full view with zoom">⤢ Full view</button><button data-all="open" class="text-slate-500 hover:text-lavender-700">Expand all</button><button data-all="close" class="text-slate-500 hover:text-lavender-700">Collapse all</button></span>
+      </div>
+      <div class="tree overflow-x-auto scroll-thin p-4">${treeMarkup(data)}</div>
+    </div>`;
+  const redraw = () => renderTree(view, data);
+  wireTree(view, data, redraw);
+  view.querySelectorAll('[data-all]').forEach(b => b.onclick = () => {
+    setAllFolded(data, b.dataset.all === 'open'); redraw();
+    animate(view.firstElementChild, 'page-fade');
+  });
+  view.querySelector('[data-tfull]').onclick = () => openFullView('tree', data, redraw);
+  fullView?.follow('tree', data, redraw);
   if (motion.entering) stagger(view.querySelectorAll('.tree-node, .tree-ghost'), 'pop-in', 22, 500);
+}
+
+// The full view: the tree or the board over the page (under the chat panel, which stays usable next to it, and
+// under pop-ups, so opening a to-do works as on the page). Both scrollbars, zoom from 20% to 200% (buttons, the
+// slider, + / − / 0 keys, ⌘/Ctrl + scroll or pinch), Fit to see everything, and drag empty space to move. The
+// board keeps its phase names pinned at the top while you scroll, and cards still drag between phases.
+// CSS zoom (not a transform) scales the layout itself, so sticky headers and drag positions keep working.
+let fullView = null;
+function openFullView(kind, data, redraw) {
+  fullView?.close();
+  const btn = 'rounded-full border border-lavender-200 px-2.5 py-1 text-slate-600 hover:bg-lavender-50 hover:text-lavender-700';
+  const box = document.createElement('div');
+  box.className = 'full-view fixed inset-0 z-[39] bg-slate-900/40 backdrop-blur-sm p-3 sm:p-6';
+  box.setAttribute('role', 'dialog');
+  box.setAttribute('aria-label', `${kind === 'board' ? 'Board' : 'Tree'}, full view`);
+  box.innerHTML = `
+    <div class="h-full flex flex-col rounded-3xl bg-white border border-lavender-100 shadow-2xl overflow-hidden">
+      <div class="flex flex-wrap items-center gap-2 px-4 py-2 border-b border-lavender-100 text-xs">
+        <span data-fv-title class="font-display font-bold text-sm text-slate-900 truncate mr-auto"></span>
+        <button data-fv-all="open" class="${btn}">Expand all</button>
+        <button data-fv-all="close" class="${btn}">Collapse all</button>
+        <span class="flex items-center gap-1.5">
+          <button data-fv-zoom="-1" class="${btn} w-7 px-0" aria-label="Zoom out" title="Zoom out (−)">−</button>
+          <input data-fv-range type="range" min="20" max="200" step="5" class="w-24 sm:w-32 accent-lavender-700" aria-label="Zoom">
+          <button data-fv-zoom="1" class="${btn} w-7 px-0" aria-label="Zoom in" title="Zoom in (+)">+</button>
+          <span data-fv-pct class="hud-num w-10 text-right text-slate-500"></span>
+        </span>
+        <button data-fv-fit class="${btn}" title="Zoom so everything fits">Fit</button>
+        <button data-fv-one class="${btn}" title="Actual size (0)">100%</button>
+        <button data-fv-chat class="${btn}" title="Show or hide the chat (C)">Chat</button>
+        <button data-fv-close class="${btn}" aria-label="Close the full view" title="Close (Esc)">✕ Close</button>
+      </div>
+      <div data-fv-scroll class="fv-scroll flex-1 min-h-0 overflow-scroll">
+        <div data-fv-content class="${kind === 'tree' ? 'tree p-6 w-max' : 'p-3'}"></div>
+      </div>
+      <p class="px-4 py-1.5 border-t border-lavender-100 text-[11px] text-slate-400">Drag empty space to move around · ⌘/Ctrl + scroll or pinch to zoom · + / − / 0 keys · Esc closes</p>
+    </div>`;
+  const $ = s => box.querySelector(s);
+  const scroller = $('[data-fv-scroll]'), content = $('[data-fv-content]');
+  let zoom = 1;
+  const clamp = z => Math.min(2, Math.max(0.2, z));
+  const show = () => {
+    content.style.zoom = zoom;
+    $('[data-fv-range]').value = Math.round(zoom * 100);
+    $('[data-fv-pct]').textContent = `${Math.round(zoom * 100)}%`;
+  };
+  // Zoom around a point of the visible area (its centre by default), so what's under it stays put.
+  const setZoom = (z, cx = scroller.clientWidth / 2, cy = scroller.clientHeight / 2) => {
+    const old = zoom, x = scroller.scrollLeft + cx, y = scroller.scrollTop + cy;
+    zoom = clamp(z); show();
+    scroller.scrollLeft = x * zoom / old - cx; scroller.scrollTop = y * zoom / old - cy;
+  };
+  const fit = () => {
+    content.style.zoom = 1;
+    const w = content.scrollWidth, h = content.scrollHeight;
+    zoom = clamp(Math.min(1, scroller.clientWidth / w, scroller.clientHeight / h));
+    show(); scroller.scrollLeft = 0; scroller.scrollTop = 0;
+  };
+  const toggleChat = () => setChatOpen(!document.body.classList.contains('chat-open'));
+  const typing = e => e.target.closest?.('input, textarea, select, [contenteditable="true"], #chat');
+  const onKey = e => {
+    if (document.querySelector('[data-backdrop]') || document.querySelector('.lightbox')) return;   // a pop-up on top handles its own keys
+    if (e.key === 'Escape' && !e.target.closest?.('#chat')) { e.stopPropagation(); close(); return; }
+    if (typing(e) || e.metaKey || e.ctrlKey || e.altKey) return;
+    const act = { '+': () => setZoom(zoom * 1.25), '=': () => setZoom(zoom * 1.25), '-': () => setZoom(zoom / 1.25),
+                  '0': () => setZoom(1), c: toggleChat, C: toggleChat }[e.key];
+    if (act) { e.preventDefault(); e.stopPropagation(); act(); }
+  };
+  const close = () => {
+    document.removeEventListener('keydown', onKey, true);
+    window.removeEventListener('hashchange', close);
+    content._ro?.disconnect();
+    fullView = null;
+    animateOut([box], 'fade-out', 160).then(() => box.remove());
+  };
+  box.addEventListener('click', e => {
+    if (e.target === box || e.target.closest('[data-fv-close]')) return close();
+    const z = e.target.closest('[data-fv-zoom]');
+    if (z) return setZoom(zoom * (z.dataset.fvZoom === '1' ? 1.25 : 0.8));
+    if (e.target.closest('[data-fv-fit]')) return fit();
+    if (e.target.closest('[data-fv-one]')) return setZoom(1);
+    if (e.target.closest('[data-fv-chat]')) return toggleChat();
+    const all = e.target.closest('[data-fv-all]');
+    if (all) { setAllFolded(fullView.data, all.dataset.fvAll === 'open'); fullView.redraw(); }
+  });
+  $('[data-fv-range]').oninput = e => setZoom(Number(e.target.value) / 100);
+  scroller.addEventListener('wheel', e => {
+    if (!e.ctrlKey && !e.metaKey) return;      // a plain scroll moves around; ⌘/Ctrl (and a trackpad pinch) zooms
+    e.preventDefault();
+    const r = scroller.getBoundingClientRect();
+    setZoom(zoom * Math.exp(-e.deltaY * 0.01), e.clientX - r.left, e.clientY - r.top);
+  }, { passive: false });
+  scroller.addEventListener('pointerdown', e => {
+    if (e.button !== 0 || e.target.closest('a, button, input, textarea, [draggable="true"], [role="button"], .card')) return;
+    const x0 = e.clientX, y0 = e.clientY, sl = scroller.scrollLeft, st = scroller.scrollTop;
+    scroller.setPointerCapture(e.pointerId);
+    scroller.classList.add('fv-panning');
+    const move = ev => { scroller.scrollLeft = sl - (ev.clientX - x0); scroller.scrollTop = st - (ev.clientY - y0); };
+    const up = () => { scroller.classList.remove('fv-panning'); scroller.removeEventListener('pointermove', move); scroller.removeEventListener('pointerup', up); scroller.removeEventListener('pointercancel', up); };
+    scroller.addEventListener('pointermove', move);
+    scroller.addEventListener('pointerup', up);
+    scroller.addEventListener('pointercancel', up);
+  });
+  const draw = (d, r) => {
+    fullView.data = d; fullView.redraw = r;
+    $('[data-fv-title]').textContent = d.block.title;
+    if (kind === 'tree') {
+      content.innerHTML = treeMarkup(d);
+      wireTree(content, d, r);
+    } else {
+      // Wide enough that every phase gets a comfortable column; Fit zooms out to show it all.
+      content.style.minWidth = `${Math.max(1, d.stages.length) * 15}rem`;
+      renderBoard(content, d, { popup: true });
+      applyFilter(content, d);
+      applyChain(content, d);
+    }
+    show();
+  };
+  fullView = {
+    kind, data, redraw, close,
+    // The page redrew this view (a fold, a drop, a new to-do, a live change): show the same. Another view: close.
+    follow(k, d, r) { k === kind ? draw(d, r) : close(); },
+  };
+  document.body.appendChild(box);
+  draw(data, redraw);
+  fit();
+  document.fonts?.ready.then(() => requestAnimationFrame(() => { if (fullView?.close === close) fit(); }));
+  document.addEventListener('keydown', onKey, true);
+  window.addEventListener('hashchange', close);
+  animate(box, 'fade-in');
 }
 
 // ---------------------------------------------------------------- "what can I do now" view
