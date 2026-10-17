@@ -5,7 +5,9 @@
 
 Nestwork is a project planner that runs on your Mac. Every project is a set of blocks nested inside blocks, and rules decide what has to finish before something else can start. An AI agent built on Claude Code works with you in a chat: it reads your projects, plans your day, logs what you did and runs tasks for you on a schedule.
 
-A game might look like this: Characters, then Cloud, then Backstory, 2D sprites and 3D model. Each level gets its own board, and progress rolls up to the top.
+![A bakery project in Nestwork's tree view, with the agent's chat open](docs/screenshot.png)
+
+A bakery launch might nest Discovery, Design, Build and Launch, each with its own board, and progress rolls up to the top.
 
 ## Table of contents
 
@@ -20,7 +22,7 @@ A game might look like this: Characters, then Cloud, then Backstory, 2D sprites 
 
 ### AI help with planning
 
-The agent sees the same projects you do through Nestwork's MCP server. Ask it "what should I do today?" or "what's left for the game project?" and it looks the answer up in your projects. *Plan my day* has it read your overdue, due and ready to-dos (and your Google Calendar, if connected), propose times with breaks, and save the plan you agree on. It can also fill your calendar, run your weekly review and add to-dos, notes and reminders.
+The agent sees the same projects you do through Nestwork's MCP server. Ask it "what should I do today?" or "what's left for the game project?" and it looks the answer up in your projects. *Plan my day* has it read your overdue, due and ready to-dos (and your Google Calendar, if connected), propose times with breaks, and save the plan you agree on. It can also run your weekly review and add to-dos, notes and reminders.
 
 You decide how much it may change: *Read only*, *Ask first* (the default, which holds each change for your approval) or *Full access*. Its changes follow the same rules as yours, and ⌘Z undoes them.
 
